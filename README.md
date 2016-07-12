@@ -1,1 +1,1 @@
-# fx_s-toch_event_-algo
+# FX (EURUSD, AUDUSD, GBPUSD, USDCAD) Stochastic Event-Based Trading Algorithm
