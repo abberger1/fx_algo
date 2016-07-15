@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 __author__ = "ABerger"
 
 from multiprocessing import Process, Queue
@@ -19,13 +18,13 @@ class Initialize:
 
 	def init_model(self):
 		try:
-			name, setting = self.set_params()
+			name, setting = self.get_config()
 		except Exception as e:
 			print("Failed to initialize:\n%s" % e)	
 			return False
 		return name, setting
 
-	def set_params(self):
+	def get_config(self):
 		params = open(self.path_to_config)
 		params = params.read().replace("\n", ",").split(",")
 
@@ -37,7 +36,7 @@ class Initialize:
 class Model:
 	def __init__(self, path_to_config):
 
-		self.is_initialized = Initialize(path_to_config).init_model()
+		self.initialize = Initialize(path_to_config)
 		param = self.get_parameters()
 	
 		self.COUNT = param[0]
@@ -69,8 +68,8 @@ class Model:
 			self.SYMBOL, self.COUNT, self.MAXPOS)
 
 	def get_parameters(self):
-		if self.is_initialized:
-	    		return self.is_initialized[1]
+		if self.initialize:
+	    		return self.initialize.init_model()[1]
 		else:
 	    		print("Warning: model not initialized")
 		return False
