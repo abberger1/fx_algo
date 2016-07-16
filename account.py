@@ -1,11 +1,7 @@
 import requests
 import pandas as pd
 
-import logging
-logging.basicConfig(filename="/home/andrew/Projects/Logs/account.py.log")
-
 class Config:
-    path_to_params = "/home/andrew/.config/Oanda/trade_model.txt"
     path_to_login = "/home/andrew/Downloads/Data/Keys/Tokens"
     
     venue = "https://api-fxpractice.oanda.com"

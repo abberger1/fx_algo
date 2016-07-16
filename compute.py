@@ -1,5 +1,5 @@
 import time
-import talib
+#import talib
 import requests
 import pandas as pd
 import datetime as dt
@@ -58,16 +58,16 @@ class Compute(Account):
         self.longWin = longWin
         self.shortWin = shortWin
 
-        self.candles["total_volume"] = self.candles["volume"].sum()
+#	self.candles["total_volume"] = self.candles["volume"].sum()
 
-        self.stoch_osc()
-        self.adf_test()
-        self.cum_ret()
-        
-        self.moving_average()
-        self.bbands()
-        self.adx()
-
+#        self.stoch_osc()
+#        self.adf_test()
+#        self.cum_ret()
+#        
+#        self.moving_average()
+#        self.bbands()
+#        self.adx()
+#
         self.tick = Tick(self.candles.ix[self.candles.index[-1]])
         
     def adf_test(self):
@@ -115,10 +115,10 @@ class Signals(Compute):
     def __init__(self, count, symbol, longWin, shortWin, granularity="S5"):
         super().__init__(count, symbol, longWin, shortWin, granularity)
 
-        self.channel, self.stoch = self.stoch_signals()
-        self.bbands_channel = self.bband_signals()
-
-        self.mavg_state = self.moving_avg_signals()
+        self.channel, self.stoch = 50, 50
+        self.bbands_channel = 0
+        
+        #self.mavg_state = self.moving_avg_signals()
         #self.macd_state = self.macd_signals()
 
     def stoch_signals(self):
