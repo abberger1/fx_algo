@@ -7,7 +7,7 @@ class TradeModelError(Exception):
 	messages = {0: "Model not initialized.",
 	            1: "Could not open configuration file.",
 	    	    2: "Configuration file contains invalid parameter.",
-	    	    3: "Unknown order status. Check if trade done"}
+	    	    3: "Unknown order status. Check if trade done."}
 
 	def __init__(self, error, message=""):
 		self.error = TradeModelError.messages[error]	
@@ -25,13 +25,6 @@ class Initial:
 		self.name = Confs.page[name]
 
 	def config(self):
-		try:
-			field, setting = self.csv_values()
-		except Exception as e:
-			raise TradeModelError(0, message=e)
-		return field, setting
-
-	def csv_values(self):
 		with open(self.name) as csv_file:
 			try:
 				p = csv_file.read().replace("\n", ",").split(",")
@@ -44,10 +37,9 @@ class Initial:
 
 class FX:
 	def __init__(self, name):
-
 		self._init = self.setup(name)
 
-		self.COUNT = self._init[0] 
+		self.COUNT = self._init[0] # lookback period
 		self.LONGWIN = self._init[1]
 		self.SHORTWIN = self._init[2]
 		
@@ -63,10 +55,8 @@ class FX:
 		
 	def setup(self, name):
 		if name in Confs.page.keys():
-			self.is_initial = Initial(name)
 			try:
-				values = self.is_initial.config()[1]
-				return values
+				return Initial(name).config()[1] # second column
 			except Exception as e:
 				raise TradeModelError(0, message=e)
 		else:
