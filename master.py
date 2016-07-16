@@ -8,31 +8,11 @@ from order import OrderHandler
 from multiprocessing import Process, Queue
 from time import sleep
 
-
-class Model(trading_models.FX):
+class StochEventAlgo(trading_models.FX):
 	def __init__(self, name):
-		_init = self.setup(name)
-		#print(_init)
+		super().__init__(name)
+		self.stoch_event()
 	
-		self.COUNT = _init[0]
-		self.LONGWIN = _init[1]
-		self.SHORTWIN = _init[2]
-		
-		self.SYMBOL = _init[3]
-		
-		self.QUANTITY = _init[4]
-		self.MAXPOS = _init[5]
-		
-		self.MAXLOSS = _init[6]
-		self.MAXGAIN = _init[7] 
-		
-		self.LIMIT = _init[8]
-		
-		self.KUP = _init[9]
-		self.KDOWN = _init[10]
-		
-		self.TREND_THRESH = _init[11] 
-		
 		self.signal_queue = Queue()
 		self.position_queue = Queue()
 		
@@ -177,4 +157,4 @@ class Model(trading_models.FX):
 
 
 if __name__ == "__main__":
-	Model("fx_stchevnt").main()
+	StochEventAlgo("fx_stchevnt").main()
