@@ -1,12 +1,12 @@
 import datetime as dt
-from log import LoggingPaths
+from trading_models import LoggingPaths
 
 class Tick:
     def __init__(self, tick):
 
         self.symbol = tick["symbol"]
         self.path = LoggingPaths(self.symbol).ticks
-        
+
         self._time = tick["timestamp"]
 
         self.closeBid = tick["closeBid"]
@@ -23,7 +23,7 @@ class Tick:
 #        self.volume = tick["volume"]
 #        self.total_volume = tick["total_volume"]
 #
-#        
+#
 #        self.sma = tick["sma"]
 #        self.ewma = tick["ewma"]
 #        self.upper = tick["upper_band"]
@@ -41,9 +41,9 @@ class Tick:
 #        self.cum_ret = tick["cum_ret"]*10000
 
     def __repr__(self):
-        return "%s %s %s / %s" % (
-		self._time, self.symbol, 
-		self.closeBid, self.closeAsk)	
+        return "%s %s %s - %s" % (
+	    	self._time, self.symbol,
+	    	self.closeBid, self.closeAsk)
 
     def write_tick(self):
         with open(self.path, "a") as file:

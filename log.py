@@ -1,13 +1,6 @@
 import datetime as dt
+from trading_models import LoggingPaths
 
-class LoggingPaths:
-    trades = "/home/andrew/Projects/Logs/trade_logs"
-    orders = "/home/andrew/Downloads/oanda_order_logs"
-    model = "/home/andrew/Downloads/model_logs"
-    
-    def __init__(self, symbol):
-        self.ticks = "/home/andrew/Projects/Logs/%s_ticks" % symbol
-    
 class ModelLog:
     def __init__(self, SYMBOL, COUNT, LONGWIN, SHORTWIN):
         self.path = LoggingPaths.model
@@ -19,7 +12,7 @@ class ModelLog:
 
     def start(self):
         start = "%s,%s,%s,%s,%s" % (
-            dt.datetime.now().timestamp(), self.SYMBOL, 
+            dt.datetime.now().timestamp(), self.SYMBOL,
             self.COUNT, self.LONGWIN, self.SHORTWIN)
         self._write_to_log(start)
         return True
@@ -33,8 +26,8 @@ class ModelLog:
         reject = "%s,%s,reject,%s,%s" % (
                   TIME, self.SYMBOL, CODE, MSG)
         mktSnap = "%s,%s,%s,%s,%s,%s" % (
-                  tick._time, tick.closeBid, 
-                  tick.closeAsk, tick.volatility, 
+                  tick._time, tick.closeBid,
+                  tick.closeAsk, tick.volatility,
                   tick.trend, tick.spread)
         self._write_to_log(reject)
         self._write_rejects(mktSnap)
