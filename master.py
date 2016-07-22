@@ -9,6 +9,8 @@ from time import sleep
 from multiprocessing import Process, Queue
 
 
+
+
 class StochEventAlgo(trading_models.FX):
 	def __init__(self, name):
 		super().__init__(name)
@@ -39,36 +41,6 @@ class StochEventAlgo(trading_models.FX):
 
 	def positions(self):
 	    return Positions().checkPosition(self.SYMBOL)
-
-	def kthresh_up_cross(self, chan, param):
-	    """ Upper threshold signal (self.KUP) """
-	    if (chan == 0) and (param > self.KUP):
-	        return True
-	    else:
-	        return False
-
-	def kthresh_down_cross(self, chan, param):
-	    """ Lower threshold signal (self.KDOWN) """
-	    if (chan == 0) and (param < self.KDOWN):
-	        return True
-	    else:
-	        return False
-
-	def stoch_upcross(self, K_to_D, params):
-	    K, D = params
-	    if (K_to_D  == -1) and  (K > D):
-	        if (K < self.KDOWN):
-	            return True
-	    else:
-	        return False
-
-	def stoch_downcross(self, K_to_D, params):
-	    K, D = params
-	    if (K_to_D  == 1) and  (K < D):
-	        if (K > self.KUP):
-	            return True
-	    else:
-	        return False
 
 	def close_out(self, tick, position, profit_loss):
 	    close = ExitPosition().closePosition(position, profit_loss, tick)
@@ -110,26 +82,6 @@ class StochEventAlgo(trading_models.FX):
 
 	        print(tick)
 	        position = self.position_queue.get()
-
-	        if self.stoch_upcross(K_to_D, [K, D]):
-	            self.order_handler(tick, "buy")
-
-	        if self.stoch_downcross(K_to_D, [K, D]):
-	            self.order_handler(tick, "sell")
-
-		#writer = tick.write_tick()
-
-	        if self.kthresh_up_cross(channel, K):
-	            self.order_handler(tick, "sell")
-
-	        elif self.kthresh_down_cross(channel, K):
-	            self.order_handler(tick, "buy")
-
-	        if self.kthresh_up_cross(channel, K):
-	            self.order_handler(tick, "buy")
-
-	        elif self.kthresh_down_cross(channel, K):
-	            self.order_handler(tick, "sell")
 
 	def trade_model(self):
 	    model = self.signals()
