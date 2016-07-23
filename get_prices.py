@@ -15,7 +15,7 @@ class GetCandles(Account):
         self.symbol = symbol
         self.granularity = granularity
 
-        self.headers = {'Authorization' : 'Bearer ' + self.token}
+        self.headers = self.get_headers()
         self.params = {'instrument' : self.symbol,
                       'granularity' : self.granularity,
                       'count' : int(self.count)}

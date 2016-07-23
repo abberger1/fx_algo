@@ -10,6 +10,8 @@ class Config:
     path_to_login = "/home/andrew/Downloads/Data/Keys/Tokens"
 
     venue = "https://api-fxpractice.oanda.com"
+    streaming = "https://stream-fxpractice.oanda.com/v1/prices"
+
     account_url = venue + "/v1/accounts/"
 
 class Confs:

@@ -1,6 +1,6 @@
 from tick import Tick
 from account import Account
-from req_prices import GetCandles
+from get_prices import GetCandles
 
 try:
     import statsmodels.tsa.stattools as ts

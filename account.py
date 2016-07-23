@@ -9,11 +9,9 @@ class Account:
 
         self.symbol = symbol
         self.venue = Config.venue
+        self.streaming = Config.streaming
         self.token = tokens["token"][account]
         self.id = str(tokens["id"][account])
-
-    def get_url(self):
-        return Config.account_url+str(self.id)+'/orders/'
 
     def order_url(self):
         return Config.account_url+str(self.id)+'/orders/'
