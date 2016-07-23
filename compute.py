@@ -13,24 +13,24 @@ from account import Account
 class GetCandles(Account):
     def __init__(self, count, symbol, granularity):
         super().__init__()
-        
+
         self.count = count
         self.symbol = symbol
         self.granularity = granularity
-        
+
         self.headers = {'Authorization' : 'Bearer ' + self.token}
         self.params = {'instrument' : self.symbol,
                       'granularity' : self.granularity,
                       'count' : int(self.count)}
-    
+
     def request(self):
         try:
-            req = requests.get(self.venue+"/v1/candles", headers=self.headers, 
+            req = requests.get(self.venue+"/v1/candles", headers=self.headers,
                                                        params=self.params).json()
             candles = pd.DataFrame(req['candles'])
             candles["symbol"] = self.symbol
 
-            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, 
+            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x,
                                                           "%Y-%m-%dT%H:%M:%S.%fZ"))
             candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
 
@@ -38,7 +38,7 @@ class GetCandles(Account):
             candles["lowMid"] = (candles["lowAsk"]+candles["lowBid"]) / 2
             candles["highMid"] = (candles["highAsk"]+candles["highBid"]) / 2
             candles["openMid"] = (candles["openAsk"]+candles["openBid"]) / 2
-            
+
             return candles
         except Exception as e:
             print('%s\n>>> Error: No candles in JSON response:'%e)
@@ -63,16 +63,16 @@ class Compute(Account):
 #        self.stoch_osc()
 #        self.adf_test()
 #        self.cum_ret()
-#        
+#
 #        self.moving_average()
 #        self.bbands()
 #        self.adx()
 #
         self.tick = Tick(self.candles.ix[self.candles.index[-1]])
-        
+
     def adf_test(self):
         test = ts.adfuller(self.candles["closeMid"], maxlag=1)
-        
+
         adf_crit = test[4]
         self.candles["ADF_1"] = adf_crit["1%"]
         self.candles["ADF_5"] = adf_crit["5%"]
@@ -117,7 +117,7 @@ class Signals(Compute):
 
         self.channel, self.stoch = 50, 50
         self.bbands_channel = 0
-        
+
         #self.mavg_state = self.moving_avg_signals()
         #self.macd_state = self.macd_signals()
 
@@ -125,16 +125,16 @@ class Signals(Compute):
         K = self.tick.K
         D = self.tick.D
 
-        if 75 < K < 90: 
+        if 75 < K < 90:
             channel = 1
-        elif 10 < K < 25: 
+        elif 10 < K < 25:
             channel = -1
-        else: 
+        else:
             channel = 0
 
-        if K > D: 
+        if K > D:
             stoch = 1
-        elif K < D: 
+        elif K < D:
             stoch = -1
 
         return channel, stoch
@@ -159,4 +159,4 @@ class Signals(Compute):
         elif ewma < sma:
             sma_state = -1
         return sma_state
-    
+

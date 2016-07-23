@@ -2,7 +2,7 @@ import datetime as dt
 import requests
 import numpy as np
 
-from log import LoggingPaths
+from config import LoggingPaths
 from account import Account
 
 class PnL:
@@ -35,17 +35,17 @@ class Positions(Account):
                 url = self.position_url() + symbol
                 params = {'instruments': symbol,
                            "accountId": self.id}
-                req = requests.get(url, headers=self.get_headers(), 
+                req = requests.get(url, headers=self.get_headers(),
                                                    data=params).json()
         except Exception as e:
                 print(">>> Caught exception returning position\n%s\n%s"%(
                                     str(e), req))
                 return False
-            
+
         if "code" in req:
                 #print(req)
                 return False
-            
+
         elif 'side' in req:
                 _side = req['side']
                 units = req['units']
@@ -90,7 +90,7 @@ class MostRecentExit:
         return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
         self._time, self.id, self.side,self.profit_loss, self.units, self.price,
         self.tick.K, self.tick.D, self.tick.cum_ret,self.tick.closeAsk, self.tick.closeBid,         self.tick.volume,self.tick.adf_p, self.tick.adf_stat)
-       
+
     def write_exit(self):
         with open(self.path, "a") as file:
                 file.write(self.__str__())
@@ -100,7 +100,7 @@ class ExitPosition(Account):
         super().__init__()
         self.url = self.position_url() + self.symbol
         self.headers = self.get_headers()
-        
+
     def _closePosition(self, symbol):
         try:
             req = requests.delete(self.url, headers=self.headers).json()

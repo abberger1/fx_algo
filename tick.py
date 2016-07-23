@@ -1,5 +1,5 @@
 import datetime as dt
-from trading_models import LoggingPaths
+from config import LoggingPaths
 
 class Tick:
     def __init__(self, tick):
