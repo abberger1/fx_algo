@@ -1,48 +1,10 @@
-import time
 #import talib
-import requests
-import pandas as pd
-import datetime as dt
-from matplotlib.dates import date2num
-
 import statsmodels.tsa.stattools as ts
 
 from tick import Tick
 from account import Account
+from req_prices import GetCandles
 
-class GetCandles(Account):
-    def __init__(self, count, symbol, granularity):
-        super().__init__()
-
-        self.count = count
-        self.symbol = symbol
-        self.granularity = granularity
-
-        self.headers = {'Authorization' : 'Bearer ' + self.token}
-        self.params = {'instrument' : self.symbol,
-                      'granularity' : self.granularity,
-                      'count' : int(self.count)}
-
-    def request(self):
-        try:
-            req = requests.get(self.venue+"/v1/candles", headers=self.headers,
-                                                       params=self.params).json()
-            candles = pd.DataFrame(req['candles'])
-            candles["symbol"] = self.symbol
-
-            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x,
-                                                          "%Y-%m-%dT%H:%M:%S.%fZ"))
-            candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
-
-            candles["closeMid"] = (candles["closeAsk"]+candles["closeBid"]) / 2
-            candles["lowMid"] = (candles["lowAsk"]+candles["lowBid"]) / 2
-            candles["highMid"] = (candles["highAsk"]+candles["highBid"]) / 2
-            candles["openMid"] = (candles["openAsk"]+candles["openBid"]) / 2
-
-            return candles
-        except Exception as e:
-            print('%s\n>>> Error: No candles in JSON response:'%e)
-            return False
 
 class Compute(Account):
     def __init__(self, count, symbol, longWin, shortWin, granularity):
@@ -110,53 +72,3 @@ class Compute(Account):
                                         self.low,
                                         self.close,
                                         timeperiod=48)
-
-class Signals(Compute):
-    def __init__(self, count, symbol, longWin, shortWin, granularity="S5"):
-        super().__init__(count, symbol, longWin, shortWin, granularity)
-
-        self.channel, self.stoch = 50, 50
-        self.bbands_channel = 0
-
-        #self.mavg_state = self.moving_avg_signals()
-        #self.macd_state = self.macd_signals()
-
-    def stoch_signals(self):
-        K = self.tick.K
-        D = self.tick.D
-
-        if 75 < K < 90:
-            channel = 1
-        elif 10 < K < 25:
-            channel = -1
-        else:
-            channel = 0
-
-        if K > D:
-            stoch = 1
-        elif K < D:
-            stoch = -1
-
-        return channel, stoch
-
-    def bband_signals(self):
-        upper = self.tick.upper
-        lower = self.tick.lower
-        closeMid = self.tick.closeMid
-        if lower < closeMid < upper:
-            channel = 0
-        elif closeMid > upper:
-            channel = 1
-        elif closeMid < lower:
-            channel = -1
-        return channel
-
-    def moving_avg_signals(self):
-        sma = self.tick.sma
-        ewma = self.tick.ewma
-        if ewma > sma:
-            sma_state = 1
-        elif ewma < sma:
-            sma_state = -1
-        return sma_state
-

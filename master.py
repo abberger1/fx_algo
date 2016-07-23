@@ -15,12 +15,6 @@ class StochEventAlgo(trading_models.FX):
 		self.signal_queue = Queue()
 		self.position_queue = Queue()
 
-		#self.model_log().start()
-
-	def __repr__(self):
-		return "SYMBOL:%s\nCOUNT:%s\nMAXPOS:%s\n" % (
-        			self.SYMBOL, self.COUNT, self.MAXPOS)
-
 	def signal_listen(self):
 	    while True:
 	        channel, K_to_D, tick = self.signal_queue.get()
