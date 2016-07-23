@@ -1,4 +1,3 @@
-
 class Indicators(object):
 	def __init__(self, kup, kdown):
 		self.KUP = kup
@@ -53,4 +52,3 @@ class Conditions(Indicators):
 
 	        elif self.kthresh_down_cross(channel, K):
 	            self.order_handler(tick, "buy")
-

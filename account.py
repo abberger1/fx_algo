@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 
-from trading_models import Config
+from config import Config
 
 class Account:
     def __init__(self, account=1, symbol="EUR_USD"):

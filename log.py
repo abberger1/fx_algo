@@ -1,5 +1,5 @@
 import datetime as dt
-from trading_models import LoggingPaths
+from config import LoggingPaths
 
 class ModelLog:
     def __init__(self, SYMBOL, COUNT, LONGWIN, SHORTWIN):

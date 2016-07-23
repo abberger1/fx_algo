@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import datetime as dt
 
-from log import LoggingPaths
+from config import LoggingPaths
 from account import Account
 
 class MostRecentReject(Account):
@@ -15,10 +15,10 @@ class MostRecentReject(Account):
         self.message = order["message"]
 
         self.reject = True # will not log
-    
+
     def __repr__(self):
         return self.__str__()
-    
+
     def __str__(self):
         return "EVENT:REJECT TIME:%s CODE:%s MSG:%s" % (
                             self._time, self.code, self.message)
@@ -40,9 +40,9 @@ class MostRecentTrade:
 
     def closed_trade(self):
         if ("tradesClosed" in self.order) and self.order["tradesClosed"]:
-            self.time = dt.datetime.strptime(self.order["time"], 
+            self.time = dt.datetime.strptime(self.order["time"],
                            "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
-            
+
             try:
                 self.side = self.order["tradesClosed"][0]["side"]
                 self.id = self.order["tradesClosed"][0]["id"]
@@ -58,7 +58,7 @@ class MostRecentTrade:
 
     def opened_trade(self):
         if ("tradeOpened" in self.order) and self.order["tradeOpened"]:
-            self.time = dt.datetime.strptime(self.order["time"], 
+            self.time = dt.datetime.strptime(self.order["time"],
                            "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
                 self.side = self.order["tradeOpened"]["side"]
@@ -73,16 +73,16 @@ class MostRecentTrade:
                 print("Caught exception in opened_trade\n%s"%e)
         else:
             pass
-                                          
+
     def __repr__(self):
         return str(self.order)
-        
+
     def __str__(self):
         return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
             self.time,self.id,self.side,self.instrument,self.units,self.price,
-            self.tick.adf_p,self.tick.adf_stat,self.tick.K, self.tick.D, 
+            self.tick.adf_p,self.tick.adf_stat,self.tick.K, self.tick.D,
             self.tick.cum_ret, self.tick.closeAsk, self.tick.closeBid,self.tick.volume)
-    
+
     def mktSnapshot(self):
         with open(self.path, "a") as file:
             file.write(self.__str__())
@@ -118,12 +118,12 @@ class MostRecentOrder(Account):
 
     def delete(self):
         try:
-                resp = requests.request("DELETE", self.url, 
+                resp = requests.request("DELETE", self.url,
                                         headers=self.headers, verify=False).json()
                 return resp
         except Exception as e:
                 raise ValueError(">>> Caught exception retrieving orders: %s"%e)
-                
+
     def __str__(self):
         return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
             self._time,self.id,self.side,self.instrument,self.units,self.price,
@@ -141,12 +141,12 @@ class OrderHandler(Account):
         super().__init__()
         self.url = self.order_url()
         self.headers = self.get_headers()
-        
+
         self.side = side
         self.quantity = quantity
-        
+
         self.tick = tick
-        
+
         self.symbol = symbol
         self.side = side
         self.quantity = quantity
@@ -197,7 +197,7 @@ class OrderHandler(Account):
                 ">>> Invalid order type %s, exiting. TRADE NOT DONE" % self.kind)
 
         try:
-                resp = requests.post(self.url, headers=self.headers, 
+                resp = requests.post(self.url, headers=self.headers,
                                                  data=params, verify=False).json()
                 return resp
         except Exception as e:
