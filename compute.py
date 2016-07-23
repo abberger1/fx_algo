@@ -1,9 +1,13 @@
-#import talib
-import statsmodels.tsa.stattools as ts
-
 from tick import Tick
 from account import Account
 from req_prices import GetCandles
+
+try:
+    import statsmodels.tsa.stattools as ts
+    #import talib
+except ImportError as e:
+    print("Could not import stats dependencies")
+    exit(0)
 
 
 class Compute(Account):

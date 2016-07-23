@@ -1,5 +1,6 @@
 from order import OrderHandler
-from compute import Signals, Compute
+from compute import Compute
+from signals import Signals
 from positions import Positions, ExitPosition, PnL
 
 class Generic:

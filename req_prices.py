@@ -4,6 +4,8 @@ import pandas as pd
 import requests
 import json
 
+from account import Account
+
 
 class GetCandles(Account):
     def __init__(self, count, symbol, granularity):
