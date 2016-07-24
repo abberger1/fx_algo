@@ -1,7 +1,6 @@
 from config import Confs, TradeModelError
 
-
-class Initial:
+class Initial(object):
         def __init__(self, name):
                 self.name = Confs.page[name]
 
@@ -16,19 +15,19 @@ class Initial:
                                 raise TradeModelError(0, message=e)
                 return field, value
 
-class FX:
+class FX(object):
         def __init__(self, name):
-                self._init = self.setup(name)
+                self._init = self.setup(name) # calls Initial
 
-                self.COUNT = self._init[0] # lookback period
+                self.COUNT = self._init[0]
                 self.LONGWIN = self._init[1]
                 self.SHORTWIN = self._init[2]
-                self.SYMBOL = self._init[3] # product code
-                self.QUANTITY = self._init[4] # trade size
-                self.MAXPOS = self._init[5] # maximum open position
-                self.MAXLOSS = self._init[6] # per trade loss
-                self.MAXGAIN = self._init[7] # per trade gain
-                self.LIMIT = self._init[8] # for limit orders
+                self.SYMBOL = self._init[3]
+                self.QUANTITY = self._init[4]
+                self.MAXPOS = self._init[5]
+                self.MAXLOSS = self._init[6]
+                self.MAXGAIN = self._init[7]
+                self.LIMIT = self._init[8]
 
                 self.MODEL = []
 
@@ -42,9 +41,9 @@ class FX:
                         raise TradeModelError(1, name)
 
         def stoch_event(self):
+                self.MODEL.append("stoch")
                 self.KUP = self._init[9]
                 self.KDOWN = self._init[10]
-                self.MODEL.append("stoch")
 
         def bband_event(self):
                 self.MODEL.append("bband")
@@ -57,3 +56,8 @@ class FX:
 
         def adx_event(self):
                 self.MODEL.append("adx")
+
+if __name__ == "__main__":
+    name = "fx_stchevnt"
+    Initial(name)
+    FX(name)

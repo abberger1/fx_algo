@@ -35,8 +35,9 @@ class Positions(Account):
                 url = self.position_url() + symbol
                 params = {'instruments': symbol,
                            "accountId": self.id}
-                req = requests.get(url, headers=self.get_headers(),
-                                                   data=params).json()
+                req = requests.get(url,
+                                    headers=self.get_headers(),
+                                    data=params).json()
         except Exception as e:
                 print(">>> Caught exception returning position\n%s\n%s"%(
                                     str(e), req))
@@ -103,7 +104,8 @@ class ExitPosition(Account):
 
     def _closePosition(self, symbol):
         try:
-            req = requests.delete(self.url, headers=self.headers).json()
+            req = requests.delete(self.url,
+                                headers=self.headers).json()
         except Exception as e:
             print('Unable to delete positions: \n', str(e))
             return req
@@ -122,7 +124,9 @@ class ExitPosition(Account):
     def closePosition(self, position, profit_loss, tick):
         exit = self._closePosition("EUR_USD")
         if exit["units"] != 0:
-            exit = MostRecentExit(exit, position.side, profit_loss, tick)
+            exit = MostRecentExit(exit,
+                            position.side,
+                            profit_loss, tick)
             exit.write_exit()
             return exit
         else:

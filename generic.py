@@ -1,60 +1,68 @@
-from order import OrderHandler
+import trading_models
 from compute import Compute
 from signals import Signals
-from positions import Positions, ExitPosition, PnL
-
-class Generic:
-	def signals(self):
-	    return Signals(self.COUNT,
-	                   self.SYMBOL,
-	                   self.LONGWIN,
-	                   self.SHORTWIN,
-	                   "S5")
-
-	def model_log(self):
-	    return ModelLog(self.SYMBOL,
-	                    self.COUNT,
-	                    self.LONGWIN,
-	                    self.SHORTWIN)
+from order import OrderHandler
+from positions import (
+            Positions,
+            ExitPosition,
+            PnL)
 
 
-	def order_handler(self, tick, side):
-	    trade = OrderHandler(self.SYMBOL,
+class Generic(trading_models.FX):
+        def __init__(self, name):
+            super().__init__(name)
+            self.stoch_event()
+
+        def signals(self):
+            return Signals(self.COUNT,
+                           self.SYMBOL,
+                           self.LONGWIN,
+                           self.SHORTWIN,
+                           "S5")
+
+        def order_handler(self, tick, side):
+            trade = OrderHandler(self.SYMBOL,
                             tick,
                             side,
                             self.QUANTITY).send_order()
+            if trade.reject:
+                print("[!] Order rejected")
 
-	    if trade.reject:
-	            self.model_log().reject(trade._time, trade.code,
-                                    trade.message, tick)
-	    else:
-	            self.model_log().order(trade.time, trade.price,
-                                trade.id, "market", side)
+        def positions(self):
+            position = Positions().checkPosition(self.SYMBOL)
+            return position
 
-	def positions(self):
-	    return Positions().checkPosition(self.SYMBOL)
+        def close_out(self, tick, position, profit_loss):
+            close = ExitPosition().closePosition(position,
+                                                profit_loss,
+                                                tick)
+            return close
 
-	def close_out(self, tick, position, profit_loss):
-	    close = ExitPosition().closePosition(position, profit_loss, tick)
-	    self.model_log().exit(close._time, close.price, close.id, profit_loss)
+        def check_position(self, tick):
+           # while True:
+           #     tick = self.signal_queue.get()[2]
 
-	def risk_control(self):
-	    while True:
-	        tick = self.signal_queue.get()[2]
+            # get positions
+            position = self.positions()
+            #self.position_queue.put(position.units)
 
-	        position = self.positions()
-	        self.position_queue.put(position.units)
+            if position.units != 0:
+                self.risk_control(tick, position)
 
-	        if position.units != 0:
-	            lower_limit = self.MAXLOSS*(position.units/10000)
-	            upper_limit = self.MAXGAIN*(position.units/10000)
+        def risk_control(self, tick, position):
+                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
+                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
+                profit_loss = PnL(tick, position).get_pnl()
 
-	            profit_loss = PnL(tick, position).get_pnl()
+                if profit_loss < lower_limit:
+                    self.close_out(tick,
+                                    position,
+                                    profit_loss)
 
-	            # close position max loss
-	            if profit_loss < lower_limit:
-	                self.close_out(tick, position, profit_loss)
+                if profit_loss > upper_limit:
+                    self.close_out(tick,
+                                    position,
+                                    profit_loss)
 
-	            # close position max gain
-	            if profit_loss > upper_limit:
-	                self.close_out(tick, position, profit_loss)
+if __name__ == "__main__":
+        Generic("fx_stchevnt")

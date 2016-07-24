@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 import trading_models
 from log import ModelLog
+from generic import Generic
 
 from time import sleep
 from multiprocessing import Process, Queue
 
 
-class StochEventAlgo(trading_models.FX):
+class StochEventAlgo(Generic):
 	def __init__(self, name):
 		super().__init__(name)
-
-		self.stoch_event()
 
 		self.signal_queue = Queue()
 		self.position_queue = Queue()
@@ -37,18 +36,9 @@ class StochEventAlgo(trading_models.FX):
 
 	        channel = model.channel
 	        K_to_D = model.stoch
-
 	        model = self.signals()
 	        tick = model.tick
 
-	def main(self):
-	    model = Process(target=self.trade_model)
-	    risk = Process(target=self.risk_control)
-	    signal = Process(target=self.signal_listen)
-
-	    model.start(); risk.start(); signal.start()
-	    model.join(); risk.join(); signal.join()
-
 
 if __name__ == "__main__":
-	StochEventAlgo("fx_stchevnt").main()
+	StochEventAlgo("fx_stchevnt")
