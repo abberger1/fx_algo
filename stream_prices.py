@@ -6,14 +6,13 @@ import sys
 
 from account import Account
 
-DEBUG = 0
-
 
 class StreamPrices(Account):
         def __init__(self, instrument):
             super().__init__()
             self.instrument = instrument
 
+        @profile
         def stream(self):
             try:
                     s = requests.Session()
@@ -34,18 +33,22 @@ class StreamPrices(Account):
             finally:
                     return resp
 
+        @profile
         def prices(self):
             for tick in self.stream():
-                tick = json.loads(str(tick, "utf-8"))
-#                if "heartbeat" in tick.keys():
-#                    heartbeat = tick["heartbeat"]
-#                    print(heartbeat)
+                try:
+                    tick = json.loads(str(tick, "utf-8"))
+                except json.decoder.JSONDecodeError as e:
+                    prev_tick = '%s' % (str(tick, "utf-8"))
+                    print(prev_tick)
+                    continue
                 if "tick" in tick.keys():
                     tick = tick["tick"]
                     print(tick)
 
 def main(instruments):
         req = StreamPrices(instruments).prices()
+
 
 if __name__ == "__main__":
         instruments = sys.argv[1]

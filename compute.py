@@ -4,7 +4,7 @@ from get_prices import GetCandles
 
 try:
     import statsmodels.tsa.stattools as ts
-    #import talib
+    import talib
 except ImportError as e:
     print("Could not import stats dependencies")
     exit(0)
@@ -24,16 +24,16 @@ class Compute(Account):
         self.longWin = longWin
         self.shortWin = shortWin
 
-#	self.candles["total_volume"] = self.candles["volume"].sum()
+        self.candles["total_volume"] = self.candles["volume"].sum()
 
-#        self.stoch_osc()
-#        self.adf_test()
-#        self.cum_ret()
-#
-#        self.moving_average()
-#        self.bbands()
-#        self.adx()
-#
+        self.stoch_osc()
+        self.adf_test()
+        self.cum_ret()
+
+        self.moving_average()
+        self.bbands()
+        self.adx()
+
         self.tick = Tick(self.candles.ix[self.candles.index[-1]])
 
     def adf_test(self):
@@ -51,8 +51,6 @@ class Compute(Account):
                                                             slowk_period=52,
                                                             fastk_period=68,
                                                             slowd_period=52)
-        self.candles["momentum"] = self.candles["K"].rolling(center=False,
-                                                             window=self.shortWin).mean() - 50
 
     def moving_average(self):
         self.candles["sma"] = talib.SMA(self.close,
@@ -76,3 +74,7 @@ class Compute(Account):
                                         self.low,
                                         self.close,
                                         timeperiod=48)
+
+
+if __name__ == '__main__':
+    print(Compute(900, 'EUR_USD', 450, 225, 'S5').tick)

@@ -20,25 +20,25 @@ class Tick:
 
         self.K = 50
         self.D = 50
-#        self.volume = tick["volume"]
-#        self.total_volume = tick["total_volume"]
-#
-#
-#        self.sma = tick["sma"]
-#        self.ewma = tick["ewma"]
-#        self.upper = tick["upper_band"]
-#        self.lower = tick["lower_band"]
-#        self.volatility = tick["volatility"]
-#
-#        self.adx = tick["adx"]
-#
-#        self.adf_1 = tick["ADF_1"]
-#        self.adf_5 = tick["ADF_5"]
-#        self.adf_10 = tick["ADF_10"]
-#        self.adf_p = tick["ADF_p"]
-#        self.adf_stat = tick["ADF_stat"]
-#
-#        self.cum_ret = tick["cum_ret"]*10000
+        self.volume = tick["volume"]
+        self.total_volume = tick["total_volume"]
+
+
+        self.sma = tick["sma"]
+        self.ewma = tick["ewma"]
+        self.upper = tick["upper_band"]
+        self.lower = tick["lower_band"]
+        self.volatility = tick["volatility"]
+
+        self.adx = tick["adx"]
+
+        self.adf_1 = tick["ADF_1"]
+        self.adf_5 = tick["ADF_5"]
+        self.adf_10 = tick["ADF_10"]
+        self.adf_p = tick["ADF_p"]
+        self.adf_stat = tick["ADF_stat"]
+
+        self.cum_ret = tick["cum_ret"]*10000
 
     def __repr__(self):
         return "%s %s %s - %s" % (

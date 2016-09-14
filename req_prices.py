@@ -40,3 +40,8 @@ class GetCandles(Account):
         except Exception as e:
             print('%s\n>>> Error: No candles in JSON response:'%e)
             return False
+
+
+if __name__ == '__main__':
+    candles = GetCandles(1250, 'EUR_USD', 'S5').request()
+    print(candles.tail())

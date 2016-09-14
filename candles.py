@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import pandas as pd
 import datetime as dt
 import matplotlib.pyplot as plt
@@ -7,7 +6,7 @@ from matplotlib.finance import candlestick_ohlc
 from matplotlib.transforms import Bbox
 
 import talib
-from compute import Signals
+from signals import Signals
 from positions import Positions, PnL
 
 plt.rcParams["axes.grid"] = True
@@ -124,3 +123,10 @@ class Candles(Signals):
             print(str(self.model.tick)+"\nPOSITION: %s %s @ %s PnL: %s"%(self.position.side, self.position.units, self.position.price, pnl))
         else:
             print(self.model.tick)
+
+        plt.show()
+
+
+if __name__ == '__main__':
+    from sys import argv
+    Candles(int(argv[1]), argv[2])

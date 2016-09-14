@@ -7,7 +7,7 @@ class LoggingPaths:
         self.ticks = "/home/andrew/Projects/Logs/%s_ticks" % symbol
 
 class Config:
-    path_to_login = "/home/andrew/Downloads/Data/Keys/Tokens"
+    path_to_login = "/home/andrew/src/python/oanda/Tokens"
 
     venue = "https://api-fxpractice.oanda.com"
     streaming = "https://stream-fxpractice.oanda.com/v1/prices"
@@ -15,9 +15,9 @@ class Config:
     account_url = venue + "/v1/accounts/"
 
 class Confs:
-	page = {"fx_stchevnt": "/home/andrew/src/Oanda/fx_stoch_event_algo/model.conf",
-    		"fx_mvgavg": "/home/andrew/src/Oanda/fx_stoch_event_algo/model.conf",
-    		"fx_bbands": "/home/andrew/src/Oanda/fx_stoch_event_algo/model.conf"}
+	page = {"fx_stchevnt": "/home/andrew/src/python/oanda/fx_stoch_event_algo/model.conf",
+    		"fx_mvgavg": "/home/andrew/src/python/oanda/fx_stoch_event_algo/model.conf",
+    		"fx_bbands": "/home/andrew/src/python/oanda/fx_stoch_event_algo/model.conf"}
 
 class TradeModelError(Exception):
 	messages = {0: "Model not initialized.",

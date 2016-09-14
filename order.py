@@ -7,12 +7,13 @@ from config import LoggingPaths
 from account import Account
 
 class MostRecentReject(Account):
-    def __init__(self, order):
+    def __init__(self, order, params):
         super().__init__()
 
         self._time = dt.datetime.now().timestamp()
         self.code = order["code"]
         self.message = order["message"]
+        self.params = params
 
         self.reject = True # will not log
 
@@ -20,8 +21,9 @@ class MostRecentReject(Account):
         return self.__str__()
 
     def __str__(self):
-        return "EVENT:REJECT TIME:%s CODE:%s MSG:%s" % (
-                            self._time, self.code, self.message)
+        # code == 23
+        return "EVENT:REJECT TIME:%s %s PRICE: %s MSG:%s" % (
+                            self._time, self.params['side'], self.params['price'], self.message)
 
 class MostRecentTrade:
     """
@@ -49,7 +51,7 @@ class MostRecentTrade:
                 self.units = self.order["tradesClosed"][0]["units"]
                 self.instrument = self.order["instrument"]
                 self.price = self.order["price"]
-                self.mktSnapshot()
+                #self.mktSnapshot()
                 return True
             except KeyError as e:
                 print("Caught exception in closed_trade\n%s"%e)
@@ -66,7 +68,7 @@ class MostRecentTrade:
                 self.units = self.order["tradeOpened"]["units"]
                 self.instrument = self.order["instrument"]
                 self.price = self.order["price"]
-                self.mktSnapshot()
+                #self.mktSnapshot()
                 return True
             except KeyError as e:
                 print(self.order)
@@ -158,9 +160,9 @@ class OrderHandler(Account):
 
     def execute_price(self):
         if self.side == "buy":
-                _price = self.tick.closeAsk
+                _price = self.tick.closeBid - 0.0001
         elif self.side == "sell":
-                _price = self.tick.closeBid
+                _price = self.tick.closeAsk + 0.0001
         else:
             raise NotImplementedError(
                    ">>> Invalid side !! \n>>> Order not complete.")
@@ -173,8 +175,8 @@ class OrderHandler(Account):
                   'type': self.kind,
                   'units': self.quantity,
                   "price": _price,
-                 "upperBound": _price+0.00005,
-                 "lowerBound": _price+0.00005}
+                  "upperBound": _price+0.00005,
+                  "lowerBound": _price-0.00005}
         return params
 
     def limit_order(self):
@@ -199,13 +201,13 @@ class OrderHandler(Account):
         try:
                 resp = requests.post(self.url, headers=self.headers,
                                                  data=params, verify=False).json()
-                return resp
+                return resp, params
         except Exception as e:
                 print(">>> Caught exception sending order\n%s"%(e))
                 return False
 
     def send_order(self):
-        order = self._send_order()
+        order, price = self._send_order()
         if order:
                 # market order
                 if "tradeOpened" in order.keys():
@@ -213,11 +215,11 @@ class OrderHandler(Account):
                 # limit order
                 elif "orderOpened" in order.keys():
                         order = MostRecentOrder(order, self.tick)
-                        order.mktSnapshot()
+                        #order.mktSnapshot()
                 # reject
                 elif "code" in order.keys():
                         if order["code"] == 23 or order["code"] == 22:
-                                order = MostRecentReject(order)
+                                order = MostRecentReject(order, price)
                                 print(order)
                         else:
                             raise NotImplementedError(
@@ -227,3 +229,19 @@ class OrderHandler(Account):
                 print(ValueError(
                 "%s>>> Order not complete\n"%order))
                 return False
+
+
+if __name__ == '__main__':
+    from sys import argv
+    from signals import Signals
+    from positions import Positions
+
+    if len(argv) < 4:
+        raise ValueError('Usage: order.py side quantity product')
+
+    tick = Signals(1250, argv[3], 900, 450).tick
+    order = OrderHandler(argv[3], tick, argv[1], argv[2]).send_order()
+    position = Positions().checkPosition(argv[3])
+
+    print(position)
+    print(tick)
