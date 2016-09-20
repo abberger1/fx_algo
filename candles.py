@@ -48,6 +48,7 @@ class Candles(Signals):
                               self.candles["closeMid"]["low"], 
                               self.candles["closeMid"]["close"],
                               self.candles["volume"]["close"]))
+
         
         self.doji = pd.Series(talib.CDLDOJI(self.candles["closeMid"]["open"].values, 
                                   self.candles["closeMid"]["high"].values, 
@@ -81,6 +82,7 @@ class Candles(Signals):
         self.TSF = pd.Series(talib.TSF(self.candles["closeMid"]["close"].values), index=self.candles.index)
         self.RSI = pd.Series(talib.RSI(self.candles["closeMid"]["close"].values), index=self.candles.index)
         
+
         candlestick_ohlc(self.ax,
                          self._candles, 
                          colorup="g", 
@@ -111,19 +113,18 @@ class Candles(Signals):
         
         self.ax3.plot(self.candles["time"], self.candles["D"]["close"], label="D")
         self.ax3.plot(self.candles["time"], self.candles["K"]["close"], label="K")
-        self.ax3.legend(loc="best")
-        
         self.ax3.set_title("%s %s %s - %s" % (count, symbol, granularity, cand_gran), loc="left")
+        self.ax3.legend(loc="best")
         
         self.ax4.plot(self.candles["time"], self.RSI, label="RSI")
         
+
         self.position = Positions().checkPosition("EUR_USD")
         if self.position.units != 0:
             pnl = PnL(self.model.tick, self.position).get_pnl()
             print(str(self.model.tick)+"\nPOSITION: %s %s @ %s PnL: %s"%(self.position.side, self.position.units, self.position.price, pnl))
         else:
             print(self.model.tick)
-
         plt.show()
 
 
