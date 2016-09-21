@@ -8,67 +8,16 @@ import requests
 import talib
 import json
 
-class Generic(FX):
-        def __init__(self, name):
-            super().__init__(name)
-            self.stoch_event()
-
-        def signals(self):
-            return Signals(self.COUNT,
-                           self.SYMBOL,
-                           self.LONGWIN,
-                           self.SHORTWIN,
-                           "S5")
-
-        def order_handler(self, tick, side):
-            trade = OrderHandler(self.SYMBOL,
-                            tick,
-                            side,
-                            self.QUANTITY).send_order()
-            if trade.reject:
-                print("[!] Order rejected")
-
-        def positions(self):
-            position = Positions().checkPosition(self.SYMBOL)
-            return position
-
-        def close_out(self, tick, position, profit_loss):
-            close = ExitPosition().closePosition(position,
-                                                profit_loss,
-                                                tick)
-            return close
-
-        def check_position(self, tick):
-           # while True:
-           #     tick = self.signal_queue.get()[2]
-
-            # get positions
-            position = self.positions()
-            #self.position_queue.put(position.units)
-
-            if position.units != 0:
-                self.risk_control(tick, position)
-
-        def risk_control(self, tick, position):
-                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
-                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
-                profit_loss = PnL(tick, position).get_pnl()
-
-                if profit_loss < lower_limit:
-                    self.close_out(tick,
-                                    position,
-                                    profit_loss)
-
-                if profit_loss > upper_limit:
-                    self.close_out(tick,
-                                    position,
-                                    profit_loss)
+from model_config import (
+                          LoggingPaths,
+                          Config,
+                          FX
+                          )
 
 
 class Account:
     def __init__(self, account=1, symbol="EUR_USD"):
         tokens = pd.read_csv(Config.path_to_login)
-
         self.symbol = symbol
         self.venue = Config.venue
         self.streaming = Config.streaming
@@ -76,153 +25,20 @@ class Account:
         self.id = str(tokens["id"][account])
 
     def order_url(self):
-        return Config.account_url+str(self.id)+'/orders/'
+        return Config.account_url + str(self.id) + '/orders/'
 
     def position_url(self):
-        return Config.account_url+self.id+"/positions/"
+        return Config.account_url + self.id + "/positions/"
 
     def get_headers(self):
-        return {'Authorization': 'Bearer ' + str(self.token)}
-
-    def __str__(self):
-        return "DOMAIN: %s \nTOKEN: %s \nID: %s" % (self.venue, self.token, self.id)
+        return {'Authorization': 'Bearer %s' % str(self.token)}
 
     def __repr__(self):
         return self.__str__()
 
-
-class Initialize:
-	def __init__(self, path_to_config):
-		self.path_to_config = path_to_config
-
-	def init_model(self):
-		try:
-			name, setting = self.set_params()
-		except Exception as e:
-			print("Failed to initialize:\n%s" % e)	
-			return False
-		return name, setting
-
-	def set_params(self):
-		params = open(self.path_to_config)
-		params = params.read().replace("\n", ",").split(",")
-
-		name = [x for x in params if params.index(x)%2==0]
-		setting = [x for x in params if params.index(x)%2!=0]
-
-		return name, setting
-			
-class Model:
-	def __init__(self, path_to_config):
-
-		self.is_initialized = Initialize(path_to_config).init_model()
-		param = self.get_parameters()
-	
-		self.COUNT = param[0]
-		self.LONGWIN = param[1]
-		self.SHORTWIN = param[2]
-		
-		self.SYMBOL = param[3]
-		
-		self.QUANTITY = param[4]
-		self.MAXPOS = param[5]
-		
-		self.MAXLOSS = param[6]
-		self.MAXGAIN = param[7] 
-		
-		self.LIMIT = param[8]
-		
-		self.KUP = param[9]
-		self.KDOWN = param[10]
-		
-		self.TREND_THRESH = param[11] 
-		
-		self.signal_queue = Queue()
-		self.position_queue = Queue()
-		
-		#self.model_log().start()
-
-	def __repr__(self):
-		return "SYMBOL:%s\nCOUNT:%s\nMAXPOS:%s\n" % (
-			self.SYMBOL, self.COUNT, self.MAXPOS)
-
-	def get_parameters(self):
-		if self.is_initialized:
-	    		return self.is_initialized[1]
-		else:
-	    		print("Warning: model not initialized")
-		return False
-
-
-class Initial(object):
-        def __init__(self, name):
-                self.name = Confs.page[name]
-
-        def config(self):
-                with open(self.name) as csv_file:
-                        try:
-                                p = csv_file.read().replace("\n", ",").split(",")
-
-                                field = [x for x in p if p.index(x)%2==0]
-                                value = [x for x in p if p.index(x)%2!=0]
-                        except Exception as e:
-                                raise TradeModelError(0, message=e)
-                return field, value
-
-
-class Indicators(object):
-    def __init__(self, kup, kdown):
-        self.KUP = kup
-        self.KDOWN = kdown
-
-    def kthresh_up_cross(self, chan, param):
-        """ Upper threshold signal (self.KUP) """
-        if (chan == 0) and (param > self.KUP):
-            return True
-        else:
-            return False
-
-    def kthresh_down_cross(self, chan, param):
-        """ Lower threshold signal (self.KDOWN) """
-        if (chan == 0) and (param < self.KDOWN):
-            return True
-        else:
-            return False
-
-    def stoch_upcross(self, K_to_D, params):
-        K, D = params
-        if (K_to_D  == -1) and  (K > D):
-            if (K < self.KDOWN):
-                return True
-        else:
-            return False
-
-    def stoch_downcross(self, K_to_D, params):
-        K, D = params
-        if (K_to_D  == 1) and  (K < D):
-            if (K > self.KUP):
-                return True
-        else:
-            return False
-
-#class Conditions(Indicators):
-#    def __init__(self,kup, kdown):
-#        super().__init__(kup, kdown)
-#
-#    def cross(self):
-#        if self.stoch_upcross(K_to_D, [K, D]):
-#            self.order_handler(tick, "buy")
-#
-#        if self.stoch_downcross(K_to_D, [K, D]):
-#            self.order_handler(tick, "sell")
-#
-#    def thresh(self):
-#        if self.kthresh_up_cross(channel, K):
-#            self.order_handler(tick, "sell")
-#
-#        elif self.kthresh_down_cross(channel, K):
-#            self.order_handler(tick, "buy")
-#
+    def __str__(self):
+        return "DOMAIN: %s \nTOKEN: %s \nID: %s" % (
+                self.venue, self.token, self.id)
 
 
 class PnL:
@@ -416,15 +232,13 @@ class Compute(Account):
 
     def stoch_osc(self):
         self.candles["K"], self.candles["D"] = talib.STOCH(self.high, self.low, self.close,
-                                                            slowk_period=52,
-                                                            fastk_period=68,
-                                                            slowd_period=52)
+                                                           slowk_period=52,
+                                                           fastk_period=68,
+                                                           slowd_period=52)
 
     def moving_average(self):
-        self.candles["sma"] = talib.SMA(self.close,
-                                        timeperiod=self.shortWin)
-        self.candles["ewma"] = talib.EMA(self.close,
-                                         timeperiod=self.shortWin)
+        self.candles["sma"] = talib.SMA(self.close, timeperiod=self.shortWin)
+        self.candles["ewma"] = talib.EMA(self.close, timeperiod=self.shortWin)
 
     def macd(self):
         self.candles["macd"], self.candles["macd_sig"], self.candles["macd_hist"] = talib.MACD(self.close)
@@ -788,6 +602,64 @@ def main(instruments):
         StreamPrices(instruments).prices()
 
 
+class Generic(FX):
+        def __init__(self, name):
+            super().__init__(name)
+            self.stoch_event()
+
+        def signals(self):
+            return Signals(self.COUNT,
+                           self.SYMBOL,
+                           self.LONGWIN,
+                           self.SHORTWIN,
+                           "S5")
+
+        def order_handler(self, tick, side):
+            trade = OrderHandler(self.SYMBOL,
+                            tick,
+                            side,
+                            self.QUANTITY).send_order()
+            if trade.reject:
+                print("[!]  -- Order rejected -- ")
+            return trade
+
+        def positions(self):
+            position = Positions().checkPosition(self.SYMBOL)
+            return position
+
+        def close_out(self, tick, position, profit_loss):
+            close = ExitPosition().closePosition(position,
+                                                profit_loss,
+                                                tick)
+            return close
+
+        def check_position(self, tick):
+           # while True:
+           #     tick = self.signal_queue.get()[2]
+
+            # get positions
+            position = self.positions()
+            #self.position_queue.put(position.units)
+
+            if position.units != 0:
+                self.risk_control(tick, position)
+
+        def risk_control(self, tick, position):
+                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
+                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
+                profit_loss = PnL(tick, position).get_pnl()
+
+                if profit_loss < lower_limit:
+                    self.close_out(tick,
+                                    position,
+                                    profit_loss)
+
+                if profit_loss > upper_limit:
+                    self.close_out(tick,
+                                    position,
+                                    profit_loss)
+
+
 class StochEventAlgo(Generic):
 	def __init__(self, name):
 		super().__init__(name)
@@ -819,12 +691,122 @@ class StochEventAlgo(Generic):
 if __name__ == '__main__':
     from sys import argv
 
-    if len(argv) < 4:
-        raise ValueError('Usage: order.py side quantity product')
+    if len(argv) > 1:
+        symbol = argv[1]
+        tick = Signals(1250, symbol, 900, 450).tick
+        #order = OrderHandler(argv[3], tick, symbol, argv[2]).send_order()
+        position = Positions().checkPosition(symbol)
 
-    tick = Signals(1250, argv[3], 900, 450).tick
-    order = OrderHandler(argv[3], tick, argv[1], argv[2]).send_order()
-    position = Positions().checkPosition(argv[3])
+        print(position)
+        print(tick)
+        main(symbol)
 
-    print(position)
-    print(tick)
+
+
+#class Initialize:
+#	def __init__(self, path_to_config):
+#		self.path_to_config = path_to_config
+#
+#	def init_model(self):
+#		try:
+#			name, setting = self.set_params()
+#		except Exception as e:
+#			print("Failed to initialize:\n%s" % e)	
+#			return False
+#		return name, setting
+#
+#	def set_params(self):
+#		params = open(self.path_to_config)
+#		params = params.read().replace("\n", ",").split(",")
+#		name = [x for x in params if params.index(x)%2==0]
+#		setting = [x for x in params if params.index(x)%2!=0]
+#		return name, setting
+#
+#			
+#class Parameters:
+#	def __init__(self, path_to_config):
+#		self.is_initialized = Initialize(path_to_config).init_model()
+#		param = self.get_parameters()
+#		self.COUNT = param[0]
+#		self.LONGWIN = param[1]
+#		self.SHORTWIN = param[2]
+#		self.SYMBOL = param[3]
+#		self.QUANTITY = param[4]
+#		self.MAXPOS = param[5]
+#		self.MAXLOSS = param[6]
+#		self.MAXGAIN = param[7] 
+#		self.LIMIT = param[8]
+#		self.KUP = param[9]
+#		self.KDOWN = param[10]
+#		self.TREND_THRESH = param[11] 
+#		self.signal_queue = Queue()
+#		self.position_queue = Queue()
+#		#self.model_log().start()
+#
+#	def __repr__(self):
+#		return "SYMBOL:%s\nCOUNT:%s\nMAXPOS:%s\n" % (
+#			self.SYMBOL, self.COUNT, self.MAXPOS)
+#
+#	def get_parameters(self):
+#		if self.is_initialized:
+#	    		return self.is_initialized[1]
+#		else:
+#	    		print("Warning: model not initialized")
+#		return False
+#
+#
+#
+#class Indicators(object):
+#    def __init__(self, kup, kdown):
+#        self.KUP = kup
+#        self.KDOWN = kdown
+#
+#    def kthresh_up_cross(self, chan, param):
+#        """ Upper threshold signal (self.KUP) """
+#        if (chan == 0) and (param > self.KUP):
+#            return True
+#        else:
+#            return False
+#
+#    def kthresh_down_cross(self, chan, param):
+#        """ Lower threshold signal (self.KDOWN) """
+#        if (chan == 0) and (param < self.KDOWN):
+#            return True
+#        else:
+#            return False
+#
+#    def stoch_upcross(self, K_to_D, params):
+#        K, D = params
+#        if (K_to_D  == -1) and  (K > D):
+#            if (K < self.KDOWN):
+#                return True
+#        else:
+#            return False
+#
+#    def stoch_downcross(self, K_to_D, params):
+#        K, D = params
+#        if (K_to_D  == 1) and  (K < D):
+#            if (K > self.KUP):
+#                return True
+#        else:
+#            return False
+#
+#class Conditions(Indicators):
+#    def __init__(self,kup, kdown):
+#        super().__init__(kup, kdown)
+#
+#    def cross(self):
+#        if self.stoch_upcross(K_to_D, [K, D]):
+#            self.order_handler(tick, "buy")
+#
+#        if self.stoch_downcross(K_to_D, [K, D]):
+#            self.order_handler(tick, "sell")
+#
+#    def thresh(self):
+#        if self.kthresh_up_cross(channel, K):
+#            self.order_handler(tick, "sell")
+#
+#        elif self.kthresh_down_cross(channel, K):
+#            self.order_handler(tick, "buy")
+#
+#
