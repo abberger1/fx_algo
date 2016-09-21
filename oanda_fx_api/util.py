@@ -8,11 +8,11 @@ import requests
 import talib
 import json
 
-from fx_algo.config import (
-                            LoggingPaths,
-                            Config,
-                            FX
-                            )
+from oanda_fx_api.config import (
+                                 LoggingPaths,
+                                 Config,
+                                 FX
+                                 )
 
 
 class Account:
@@ -33,12 +33,11 @@ class Account:
     def get_headers(self):
         return {'Authorization': 'Bearer %s' % str(self.token)}
 
+    def __str__(self):
+        return "[=> %s (%s)" % (self.venue, self.id)
+
     def __repr__(self):
         return self.__str__()
-
-    def __str__(self):
-        return "DOMAIN: %s \nTOKEN: %s \nID: %s" % (
-                self.venue, self.token, self.id)
 
 
 class PnL:
@@ -76,8 +75,7 @@ class Positions(Account):
                                     headers=self.get_headers(),
                                     data=params).json()
         except Exception as e:
-                print(">>> Caught exception returning position\n%s\n%s"%(
-                                    str(e), req))
+                print(">>> Error returning position\n%s\n%s"%(str(e), req))
                 return False
 
         if "code" in req:
@@ -88,10 +86,10 @@ class Positions(Account):
                 _side = req['side']
                 units = req['units']
                 price = req['avgPrice']
-
-                if _side == 'sell': side = 'short'
-                elif _side == 'buy': side = 'long'
-
+                if _side == 'sell': 
+                    side = 'short'
+                elif _side == 'buy': 
+                    side = 'long'
                 position = {'side': side,
                         'units': units,
                         'price': price}
@@ -123,14 +121,6 @@ class MostRecentExit:
         self.tick = tick
         self.path = LoggingPaths.trades
 
-    def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
-        self._time, self.id, self.side,self.profit_loss, self.units, self.price,
-        self.tick.K, self.tick.D, self.tick.cum_ret,self.tick.closeAsk, self.tick.closeBid,         self.tick.volume,self.tick.adf_p, self.tick.adf_stat)
-
-    def write_exit(self):
-        with open(self.path, "a") as file:
-                file.write(self.__str__())
 
 
 class ExitPosition(Account):
@@ -320,8 +310,10 @@ class MostRecentReject(Account):
 
     def __str__(self):
         # code == 23
-        return "EVENT:REJECT TIME:%s %s PRICE: %s MSG:%s" % (
-                            self._time, self.params['side'], self.params['price'], self.message)
+        return "[=> REJECT %s %s @ %s (%s)" % (self._time, 
+                                               self.params['side'], 
+                                               self.params['price'], 
+                                               self.message)
 
 
 class MostRecentTrade:
@@ -348,7 +340,6 @@ class MostRecentTrade:
                 self.units = self.order["tradesClosed"][0]["units"]
                 self.instrument = self.order["instrument"]
                 self.price = self.order["price"]
-                #self.mktSnapshot()
                 return True
             except KeyError as e:
                 print("Caught exception in closed_trade\n%s"%e)
@@ -365,7 +356,6 @@ class MostRecentTrade:
                 self.units = self.order["tradeOpened"]["units"]
                 self.instrument = self.order["instrument"]
                 self.price = self.order["price"]
-                #self.mktSnapshot()
                 return True
             except KeyError as e:
                 print(self.order)
@@ -375,16 +365,6 @@ class MostRecentTrade:
 
     def __repr__(self):
         return str(self.order)
-
-    def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
-            self.time,self.id,self.side,self.instrument,self.units,self.price,
-            self.tick.adf_p,self.tick.adf_stat,self.tick.K, self.tick.D,
-            self.tick.cum_ret, self.tick.closeAsk, self.tick.closeBid,self.tick.volume)
-
-    def mktSnapshot(self):
-        with open(self.path, "a") as file:
-            file.write(self.__str__())
 
 
 class MostRecentOrder(Account):
@@ -420,17 +400,6 @@ class MostRecentOrder(Account):
                 return resp
         except Exception as e:
                 raise ValueError(">>> Caught exception retrieving orders: %s"%e)
-
-    def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n"%(
-            self._time,self.id,self.side,self.instrument,self.units,self.price,
-            self.tick.volume,self.tick.volatility,
-            self.tick.K, self.tick.closeAsk,
-            self.tick.closeBid, self.tick.total_volume)
-
-    def mktSnapshot(self):
-        with open(self.path, "a") as file:
-            file.write(self.__str__())
 
 
 class OrderHandler(Account):
@@ -506,7 +475,6 @@ class OrderHandler(Account):
                 # limit order
                 elif "orderOpened" in order.keys():
                         order = MostRecentOrder(order, self.tick)
-                        #order.mktSnapshot()
                 # reject
                 elif "code" in order.keys():
                         if order["code"] == 23 or order["code"] == 22:

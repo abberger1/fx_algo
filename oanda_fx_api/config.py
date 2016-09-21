@@ -56,16 +56,16 @@ class ModelLog:
 
 
 class Config:
-    path_to_login = "/home/andrew/src/python/fx_stoch_event_algo/Tokens"
+    path_to_login = "/home/andrew/src/python/fx_algo/oanda_fx_api/Tokens"
     venue = "https://api-fxpractice.oanda.com"
     streaming = "https://stream-fxpractice.oanda.com/v1/prices"
     account_url = venue + "/v1/accounts/"
 
 
 class Confs:
-    page = {"fx_stchevnt": "/home/andrew/src/python/oanda/fx_stoch_event_algo/params.csv",
-            "fx_mvgavg": "/home/andrew/src/python/oanda/fx_stoch_event_algo/params.csv",
-            "fx_bbands": "/home/andrew/src/python/oanda/fx_stoch_event_algo/params.csv"}
+    page = {"fx_stchevnt": "/home/andrew/src/python/oanda/fx_algo/oanda_fx_api/params.csv",
+            "fx_mvgavg": "/home/andrew/src/python/oanda/fx_algo/oanda_fx_api/params.csv",
+            "fx_bbands": "/home/andrew/src/python/oanda/fx_algo/oanda_fx_api/params.csv"}
 
 
 class TradeModelError(Exception):
