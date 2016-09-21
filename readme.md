@@ -10,13 +10,13 @@ install:
     pip install .
   
 dependencies:
-  pandas
+  - pandas
     - pip
-  numpy
+  - numpy
     - pip
-  statsmodels
+  - statsmodels
     - pip 
-  ta-lib:
+  - ta-lib:
     - if you do not have this package already, you will need to build the underlying c from source:
     - http://prdownloads.sourceforge.net/ta-lib/
     - (untar and cd, ./configure, then make && sudo make install)
