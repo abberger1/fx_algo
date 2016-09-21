@@ -56,7 +56,7 @@ class ModelLog:
 
 
 class Config:
-    path_to_login = "/home/andrew/src/python/oanda/Tokens"
+    path_to_login = "/home/andrew/src/python/fx_stoch_event_algo/Tokens"
     venue = "https://api-fxpractice.oanda.com"
     streaming = "https://stream-fxpractice.oanda.com/v1/prices"
     account_url = venue + "/v1/accounts/"
