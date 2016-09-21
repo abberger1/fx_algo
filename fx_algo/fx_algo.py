@@ -8,11 +8,11 @@ import requests
 import talib
 import json
 
-from model_config import (
-                          LoggingPaths,
-                          Config,
-                          FX
-                          )
+from fx_algo.config import (
+                            LoggingPaths,
+                            Config,
+                            FX
+                            )
 
 
 class Account:
