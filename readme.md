@@ -6,8 +6,8 @@ all packages used (except talib) are included in the Anaconda distribution of Py
 see below for how to install ta-lib for the technical analysis component of this module
 
 install:
-    git clone https://github.com/abberger1/fx_stoch_event_algo
-    pip install .
+    - git clone https://github.com/abberger1/fx_stoch_event_algo
+    - pip install .
   
 dependencies:
   - pandas
