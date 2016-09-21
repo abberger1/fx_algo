@@ -6,4 +6,5 @@ setup(name='oanda_fx_api',
       url='https://github.com/abberger1/fx_stoch_event_algo',
       author='Andrew Berger',
       packages=['oanda_fx_api'],
+      install_requires=[x for x in open('requirements.txt', 'r')],
       zip_safe=False)
