@@ -1,4 +1,4 @@
-# FX Stochastic Event-Based Trading Algorithm
+Python Wrapper for the Oanda FX Trading Platform
 
 all packages used (except talib) are included in the Anaconda distribution of Python 3.5:
   - https://docs.continuum.io/anaconda/
@@ -23,22 +23,19 @@ dependencies:
     - (untar and cd, ./configure, then make && sudo make install)
     - then you can pip install TA-Lib or git clone https://github.com/mrjbq7/ta-lib to install
 
-examples:
+examples in IPython:
   
-    >> import matplotlib.pyplot as plt
     >> from oanda_api_fx.util import GetCandles
     >> candles = GetCandles(1250, 'EUR_USD', 'S5').request()
     >> candles['closeMid'].plot()
-    >> plt.show()
-    
+
     >> from oanda_api_fx.util import StreamPrices
     >> stream = StreamPrices('EUR_USD')
     >> stream.prices()
-    
+ 
     >> from oanda_api_fx.util import Signals, OrderHandler
     >> tick = Signals(1250, 'EUR_USD', 900, 450).tick
     >> OrderHandler('EUR_USD', tick, 'BUY', 1000000).send_order()
-    
+ 
     >> from oanda_api_fx.util import Positions
     >> position = Positions().checkPosition('EUR_USD')
-
