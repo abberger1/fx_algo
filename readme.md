@@ -1,11 +1,11 @@
 Python Wrapper for the Oanda fxTrade Platform (REST-v20 API)
+  - http://developer.oanda.com/rest-live-v20/introduction/
 
 all packages used (except talib) are included in the Anaconda distribution of Python 3.5:
   - https://docs.continuum.io/anaconda/
-  - 
-see below for how to install ta-lib for the technical analysis component of this module
+  - see below for how to install ta-lib for the technical analysis component of this module
 
-to install:
+to install oanda_fx_api:
 
     git clone https://github.com/abberger1/fx_stoch_event_algo
     pip install .
