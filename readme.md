@@ -1,4 +1,4 @@
-Python Wrapper for the Oanda FX Trading Platform
+Python Wrapper for the Oanda fxTrade Platform (REST-v20 API)
 
 all packages used (except talib) are included in the Anaconda distribution of Python 3.5:
   - https://docs.continuum.io/anaconda/
@@ -12,11 +12,8 @@ to install:
   
 dependencies:
   - pandas
-    - pip
   - numpy
-    - pip
   - statsmodels
-    - pip 
   - ta-lib:
     - if you do not have this package already, you will need to build the underlying c from source:
     - http://prdownloads.sourceforge.net/ta-lib/
