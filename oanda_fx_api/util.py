@@ -18,21 +18,57 @@ class Initialize(Account):
         Account.__init__(self)
 
 
-class GetCandles(Account):
-    def __init__(self, count, symbol, granularity):
-        Account.__init__(self)
+class StreamPrices:
+    def __init__(self, account, instrument):
+        self.account = account
+        self.instrument = instrument
+
+    def stream(self):
+        try:
+            s = requests.Session()
+            headers = self.account.get_headers()
+            params = {"instruments": self.instrument,
+                      "accessToken": self.account.token,
+                      "accountId": self.account.id}
+            req = requests.Request("GET",
+                                    self.account.streaming,
+                                    headers=headers,
+                                    params=params)
+            pre = req.prepare()
+            resp = s.send(pre, stream=True, verify=False)
+        except Exception as e:
+            print(">>> Caught exception during request\n{}".format(e))
+            s.close()
+        finally:
+            return resp
+
+    def prices(self):
+        for tick in self.stream():
+            try:
+                tick = json.loads(str(tick, "utf-8"))
+            except json.decoder.JSONDecodeError as e:
+                prev_tick = '%s' % (str(tick, "utf-8"))
+                print(prev_tick)
+                continue
+            if "tick" in tick.keys():
+                tick = tick["tick"]
+                print(tick)
+
+
+class GetCandles:
+    def __init__(self, account, count, symbol, granularity):
+        self.account = account
         self.count = count
         self.symbol = symbol
         self.granularity = granularity
-        self.headers = {'Authorization' : 'Bearer ' + self.token}
+        self.headers = account.get_headers()
         self.params = {'instrument' : self.symbol,
                        'granularity' : self.granularity,
                        'count' : int(self.count)}
 
     def request(self):
         try:
-            req = requests.get(self.venue+"/v1/candles", headers=self.headers,
-                                                       params=self.params).json()
+            req = requests.get(self.account.venue+"/v1/candles", headers=self.headers, params=self.params).json()
             candles = pd.DataFrame(req['candles'])
             candles["symbol"] = self.symbol
             candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
@@ -47,9 +83,48 @@ class GetCandles(Account):
             return False
 
 
+class Tick:
+    def __init__(self, tick):
+        self.symbol = tick["symbol"]
+        self.path = LoggingPaths(self.symbol).ticks
+        self._time = tick["timestamp"]
+        self.closeBid = tick["closeBid"]
+        self.closeAsk = tick["closeAsk"]
+        self.spread = (self.closeAsk - self.closeBid) * 10000
+        self.openMid = tick["openMid"]
+        self.highMid = tick["highMid"]
+        self.lowMid = tick["lowMid"]
+        self.closeMid = tick["closeMid"]
+        self.K = tick['K']
+        self.D = tick['D']
+        self.volume = tick["volume"]
+        self.total_volume = tick["total_volume"]
+        self.sma = tick["sma"]
+        self.ewma = tick["ewma"]
+        self.upper = tick["upper_band"]
+        self.lower = tick["lower_band"]
+        self.volatility = tick["volatility"]
+        self.adx = tick["adx"]
+        self.adf_1 = tick["ADF_1"]
+        self.adf_5 = tick["ADF_5"]
+        self.adf_10 = tick["ADF_10"]
+        self.adf_p = tick["ADF_p"]
+        self.adf_stat = tick["ADF_stat"]
+        self.cum_ret = tick["cum_ret"]*10000
+
+    def __repr__(self):
+        return "%s %s %s - %s" % (
+	    	self._time, self.symbol,
+	    	self.closeBid, self.closeAsk)
+
+    def write_tick(self):
+        with open(self.path, "a") as file:
+            file.write(self.__repr__())
+
+
 class Compute(GetCandles):
-    def __init__(self, count, symbol, longWin, shortWin, granularity):
-        GetCandles.__init__(self, count, symbol, granularity)
+    def __init__(self, account, count, symbol, longWin, shortWin, granularity):
+        GetCandles.__init__(self, account, count, symbol, granularity)
         self.candles = self.request()
         self._open = self.candles["openMid"].values
         self.high = self.candles["highMid"].values
@@ -76,7 +151,9 @@ class Compute(GetCandles):
         self.candles["ADF_stat"] = test[0]
 
     def stoch_osc(self):
-        self.candles["K"], self.candles["D"] = talib.STOCH(self.high, self.low, self.close,
+        self.candles["K"], self.candles["D"] = talib.STOCH(self.high, 
+                                                           self.low, 
+                                                           self.close,
                                                            slowk_period=52,
                                                            fastk_period=68,
                                                            slowd_period=52)
@@ -100,8 +177,8 @@ class Compute(GetCandles):
 
 
 class Signals(Compute):
-    def __init__(self, count, symbol, longWin, shortWin, granularity="S5"):
-        Compute.__init__(self, count, symbol, longWin, shortWin, granularity)
+    def __init__(self, account, count, symbol, longWin, shortWin, granularity="S5"):
+        Compute.__init__(self, account, count, symbol, longWin, shortWin, granularity)
         self.channel, self.stoch = 50, 50
         self.bbands_channel = 0
         #self.mavg_state = self.moving_avg_signals()
@@ -144,9 +221,9 @@ class Signals(Compute):
         return sma_state
 
 
-class MostRecentReject(Account):
-    def __init__(self, order, params):
-        Account.__init__()
+class MostRecentReject:
+    def __init__(self, account, order, params):
+        self.account = account
         self._time = dt.datetime.now().timestamp()
         self.code = order["code"]
         self.message = order["message"]
@@ -212,10 +289,11 @@ class MostRecentTrade:
         return str(self.order)
 
 
-class OrderHandler(Account):
-    def __init__(self, symbol, tick, side, quantity, kind="market", price=0):
-        self.url = self.order_url()
-        self.headers = self.get_headers()
+class OrderHandler:
+    def __init__(self, account, symbol, tick, side, quantity, kind="market", price=0):
+        self.account = account
+        self.url = account.order_url()
+        self.headers = account.get_headers()
         self.side = side
         self.quantity = quantity
         self.tick = tick
@@ -266,8 +344,7 @@ class OrderHandler(Account):
             raise NotImplementedError(
             ">>> Invalid order type %s, exiting. TRADE NOT DONE" % self.kind)
         try:
-            resp = requests.post(self.url, headers=self.headers,
-                                             data=params, verify=False).json()
+            resp = requests.post(self.url, headers=self.headers, data=params, verify=False).json()
             return resp, params
         except Exception as e:
             print(">>> Caught exception sending order\n%s"%(e))
@@ -296,44 +373,6 @@ class OrderHandler(Account):
             "%s>>> Order not complete\n"%order))
             return False
 
-class Tick:
-    def __init__(self, tick):
-        self.symbol = tick["symbol"]
-        self.path = LoggingPaths(self.symbol).ticks
-        self._time = tick["timestamp"]
-        self.closeBid = tick["closeBid"]
-        self.closeAsk = tick["closeAsk"]
-        self.spread = (self.closeAsk - self.closeBid)*10000
-        self.openMid = tick["openMid"] # = avg(openAsk, openBid)
-        self.highMid = tick["highMid"] # = avg(highBid, highAsk)
-        self.lowMid = tick["lowMid"] # = avg(lowBid, lowAsk)
-        self.closeMid = tick["closeMid"] # = avg(closeBid, closeAsk)
-        self.K = 50
-        self.D = 50
-        self.volume = tick["volume"]
-        self.total_volume = tick["total_volume"]
-        self.sma = tick["sma"]
-        self.ewma = tick["ewma"]
-        self.upper = tick["upper_band"]
-        self.lower = tick["lower_band"]
-        self.volatility = tick["volatility"]
-        self.adx = tick["adx"]
-        self.adf_1 = tick["ADF_1"]
-        self.adf_5 = tick["ADF_5"]
-        self.adf_10 = tick["ADF_10"]
-        self.adf_p = tick["ADF_p"]
-        self.adf_stat = tick["ADF_stat"]
-        self.cum_ret = tick["cum_ret"]*10000
-
-    def __repr__(self):
-        return "%s %s %s - %s" % (
-	    	self._time, self.symbol,
-	    	self.closeBid, self.closeAsk)
-
-    def write_tick(self):
-        with open(self.path, "a") as file:
-            file.write(self.__repr__())
-
 
 class PnL:
     def __init__(self, tick, position):
@@ -361,18 +400,17 @@ class MostRecentPosition:
 
 
 class Positions(Initialize):
-    def __init__(self, symbol):
-        Account.__init__(self)
+    def __init__(self, account, symbol):
+        self.account = account
+        self.headers = account.get_headers()
         self.symbol = symbol
 
     def _checkPosition(self):
         try:
-            url = self.position_url() + self.symbol
+            url = self.account.position_url() + self.symbol
             params = {'instruments': self.symbol,
-                       "accountId": self.id}
-            req = requests.get(url,
-                                headers=self.get_headers(),
-                                data=params).json()
+                       "accountId": self.account.id}
+            req = requests.get(url, headers=self.headers, data=params).json()
         except Exception as e:
             print(">>> Error returning position\n%s\n%s"%(str(e), req))
             return False
@@ -420,11 +458,11 @@ class MostRecentExit:
         self.path = LoggingPaths.trades
 
 
-class ExitPosition(Account):
-    def __init__(self):
-        Account.__init__()
+class ExitPosition:
+    def __init__(self, account):
+        self.account = account
         self.url = self.position_url() + self.symbol
-        self.headers = self.get_headers()
+        self.headers = account.get_headers()
 
     def _closePosition(self, symbol):
         try:
@@ -458,45 +496,8 @@ class ExitPosition(Account):
             return False
 
 
-class StreamPrices(Account):
-    def __init__(self, instrument):
-        Account.__init__(self)
-        self.instrument = instrument
-
-    def stream(self):
-        try:
-            s = requests.Session()
-            headers = self.get_headers()
-            params = {"instruments": self.instrument,
-                      "accessToken": self.token,
-                      "accountId": self.id}
-            req = requests.Request("GET",
-                                    self.streaming,
-                                    headers=headers,
-                                    params=params)
-            pre = req.prepare()
-            resp = s.send(pre, stream=True, verify=False)
-        except Exception as e:
-            print(">>> Caught exception during request\n{}".format(e))
-            s.close()
-        finally:
-            return resp
-
-    def prices(self):
-        for tick in self.stream():
-            try:
-                tick = json.loads(str(tick, "utf-8"))
-            except json.decoder.JSONDecodeError as e:
-                prev_tick = '%s' % (str(tick, "utf-8"))
-                print(prev_tick)
-                continue
-            if "tick" in tick.keys():
-                tick = tick["tick"]
-                print(tick)
 
 
-def main(instruments):
-    StreamPrices(instruments).prices()
 
 
 if __name__ == '__main__':
@@ -504,13 +505,14 @@ if __name__ == '__main__':
 
     if len(argv) > 1:
         symbol = argv[1]
-        tick = Signals(1250, symbol, 900, 450).tick
+        account = Account()
+        tick = Signals(account, 1250, symbol, 900, 450).tick
         #order = OrderHandler(argv[3], tick, symbol, argv[2]).send_order()
-        position = Positions(symbol).checkPosition()
+        position = Positions(account, symbol).checkPosition()
 
         print(position)
         print(tick)
-        main(symbol)
+        StreamPrices(account, symbol).prices()
 
 
 
@@ -706,11 +708,12 @@ if __name__ == '__main__':
 #	        model = self.signals()
 #	        tick = model.tick
 #
-#class MostRecentOrder(Account):
+#class MostRecentOrder:
 #    """
 #    Limit Orders --> response from Oanda POST
 #    """
-#    def __init__(self, order, tick):
+#    def __init__(self, account, order, tick):
+#        self.account = account
 #        self._time = dt.datetime.now().timestamp()
 #        self.price = order["price"]
 #        self.instrument = order["instrument"]
