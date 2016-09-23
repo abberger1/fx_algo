@@ -1,6 +1,4 @@
 import statsmodels.tsa.stattools as ts
-from multiprocessing import Queue
-from time import sleep
 import datetime as dt
 import pandas as pd
 import numpy as np
@@ -8,169 +6,28 @@ import requests
 import talib
 import json
 
-from oanda_fx_api.config import (
-                                 LoggingPaths,
-                                 Config,
-                                 FX
-                                 )
+from config import (
+                    LoggingPaths,
+                    FX
+                    )
+from account import Account
 
 
-class Account:
-    def __init__(self, account=1, symbol="EUR_USD"):
-        tokens = pd.read_csv(Config.path_to_login)
-        self.symbol = symbol
-        self.venue = Config.venue
-        self.streaming = Config.streaming
-        self.token = tokens["token"][account]
-        self.id = str(tokens["id"][account])
-
-    def order_url(self):
-        return Config.account_url + str(self.id) + '/orders/'
-
-    def position_url(self):
-        return Config.account_url + self.id + "/positions/"
-
-    def get_headers(self):
-        return {'Authorization': 'Bearer %s' % str(self.token)}
-
-    def __str__(self):
-        return "[=> %s (%s)" % (self.venue, self.id)
-
-    def __repr__(self):
-        return self.__str__()
-
-
-class PnL:
-    def __init__(self, tick, position):
-        self.tick = tick
-        self.position = position
-
-    def get_pnl(self):
-        if self.position.side == "short":
-            pnl = (self.position.price - self.tick.closeAsk)*self.position.units
-        elif self.position.side == "long":
-            pnl = (self.tick.closeBid - self.position.price)*self.position.units
-        return pnl
-
-
-class MostRecentPosition:
-    def __init__(self, side, price, units):
-        self.side = side
-        self.price = price
-        self.units = units
-        self.order = [self.side, self.units, self.price]
-
-    def __repr__(self):
-        return "SIDE: %s PRICE: %s UNITS: %s\n" % (
-                self.side, np.mean(self.price), self.units)
-
-
-class Positions(Account):
-    def _checkPosition(self, symbol):
-        try:
-                url = self.position_url() + symbol
-                params = {'instruments': symbol,
-                           "accountId": self.id}
-                req = requests.get(url,
-                                    headers=self.get_headers(),
-                                    data=params).json()
-        except Exception as e:
-                print(">>> Error returning position\n%s\n%s"%(str(e), req))
-                return False
-
-        if "code" in req:
-                #print(req)
-                return False
-
-        elif 'side' in req:
-                _side = req['side']
-                units = req['units']
-                price = req['avgPrice']
-                if _side == 'sell': 
-                    side = 'short'
-                elif _side == 'buy': 
-                    side = 'long'
-                position = {'side': side,
-                        'units': units,
-                        'price': price}
-                return position
-        else:
-                print(req)
-                return False
-
-    def checkPosition(self, symbol):
-        position = self._checkPosition(symbol)
-        if position:
-                position = MostRecentPosition(position["side"],
-                                             position["price"],
-                                             position["units"])
-                return position
-        else:
-                return MostRecentPosition(0, 0, 0)
-
-
-class MostRecentExit:
-    def __init__(self, position, side, profit_loss, tick):
-        self._time = tick._time
-        self.id = ("|").join([str(x) for x in position["ids"]])
-        self.instrument = position["instrument"]
-        self.price = position["price"]
-        self.units = position["units"]
-        self.profit_loss = profit_loss
-        self.side = side
-        self.tick = tick
-        self.path = LoggingPaths.trades
-
-
-
-class ExitPosition(Account):
+class Initialize(Account):
     def __init__(self):
-        super().__init__()
-        self.url = self.position_url() + self.symbol
-        self.headers = self.get_headers()
-
-    def _closePosition(self, symbol):
-        try:
-            req = requests.delete(self.url,
-                                headers=self.headers).json()
-        except Exception as e:
-            print('Unable to delete positions: \n', str(e))
-            return req
-        try:
-            ids = req['ids']
-            instrument = req['instrument']
-            units = req['totalUnits']
-            price = req['price']
-            orderData = {'ids': ids, 'instrument': instrument,
-                            'units': units, 'price': price}
-            return orderData
-        except Exception as e:
-            print('Caught exception closing positions: \n%s\n%s'%(str(e), req))
-            return False
-
-    def closePosition(self, position, profit_loss, tick):
-        exit = self._closePosition("EUR_USD")
-        if exit["units"] != 0:
-            exit = MostRecentExit(exit,
-                            position.side,
-                            profit_loss, tick)
-            exit.write_exit()
-            return exit
-        else:
-            print(">>> No positions removed\n(%s)"%position)
-            return False
+        Account.__init__(self)
 
 
 class GetCandles(Account):
     def __init__(self, count, symbol, granularity):
-        super().__init__()
+        Account.__init__(self)
         self.count = count
         self.symbol = symbol
         self.granularity = granularity
         self.headers = {'Authorization' : 'Bearer ' + self.token}
         self.params = {'instrument' : self.symbol,
-                      'granularity' : self.granularity,
-                      'count' : int(self.count)}
+                       'granularity' : self.granularity,
+                       'count' : int(self.count)}
 
     def request(self):
         try:
@@ -178,24 +35,22 @@ class GetCandles(Account):
                                                        params=self.params).json()
             candles = pd.DataFrame(req['candles'])
             candles["symbol"] = self.symbol
-            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x,
-                                                          "%Y-%m-%dT%H:%M:%S.%fZ"))
+            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
             candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
             candles["closeMid"] = (candles["closeAsk"]+candles["closeBid"]) / 2
             candles["lowMid"] = (candles["lowAsk"]+candles["lowBid"]) / 2
             candles["highMid"] = (candles["highAsk"]+candles["highBid"]) / 2
             candles["openMid"] = (candles["openAsk"]+candles["openBid"]) / 2
-
             return candles
         except Exception as e:
             print('%s\n>>> Error: No candles in JSON response:'%e)
             return False
 
 
-class Compute(Account):
+class Compute(GetCandles):
     def __init__(self, count, symbol, longWin, shortWin, granularity):
-        super().__init__()
-        self.candles = GetCandles(count, symbol, granularity).request()
+        GetCandles.__init__(self, count, symbol, granularity)
+        self.candles = self.request()
         self._open = self.candles["openMid"].values
         self.high = self.candles["highMid"].values
         self.low = self.candles["lowMid"].values
@@ -234,23 +89,19 @@ class Compute(Account):
         self.candles["macd"], self.candles["macd_sig"], self.candles["macd_hist"] = talib.MACD(self.close)
 
     def bbands(self):
-        self.candles["upper_band"], self.candles["mid"], self.candles["lower_band"] = talib.BBANDS(self.close,
-                                                                                                    timeperiod=self.longWin)
+        self.candles["upper_band"], self.candles["mid"], self.candles["lower_band"] = talib.BBANDS(self.close, timeperiod=self.longWin)
         self.candles["volatility"] = (self.candles["upper_band"] - self.candles["lower_band"])*10000
 
     def cum_ret(self):
         self.candles["cum_ret"] = self.candles["closeMid"].pct_change().cumsum()
 
     def adx(self):
-        self.candles["adx"] = talib.ADX(self.high,
-                                        self.low,
-                                        self.close,
-                                        timeperiod=48)
+        self.candles["adx"] = talib.ADX(self.high, self.low, self.close, timeperiod=48)
 
 
 class Signals(Compute):
     def __init__(self, count, symbol, longWin, shortWin, granularity="S5"):
-        super().__init__(count, symbol, longWin, shortWin, granularity)
+        Compute.__init__(self, count, symbol, longWin, shortWin, granularity)
         self.channel, self.stoch = 50, 50
         self.bbands_channel = 0
         #self.mavg_state = self.moving_avg_signals()
@@ -259,19 +110,16 @@ class Signals(Compute):
     def stoch_signals(self):
         K = self.tick.K
         D = self.tick.D
-
         if self.KUP < K < 90:
             channel = 1
         elif 10 < K < self.KDOWN:
             channel = -1
         else:
             channel = 0
-
         if K > D:
             stoch = 1
         elif K < D:
             stoch = -1
-
         return channel, stoch
 
     def bband_signals(self):
@@ -298,7 +146,7 @@ class Signals(Compute):
 
 class MostRecentReject(Account):
     def __init__(self, order, params):
-        super().__init__()
+        Account.__init__()
         self._time = dt.datetime.now().timestamp()
         self.code = order["code"]
         self.message = order["message"]
@@ -331,9 +179,7 @@ class MostRecentTrade:
 
     def closed_trade(self):
         if ("tradesClosed" in self.order) and self.order["tradesClosed"]:
-            self.time = dt.datetime.strptime(self.order["time"],
-                           "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
-
+            self.time = dt.datetime.strptime(self.order["time"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
                 self.side = self.order["tradesClosed"][0]["side"]
                 self.id = self.order["tradesClosed"][0]["id"]
@@ -348,8 +194,7 @@ class MostRecentTrade:
 
     def opened_trade(self):
         if ("tradeOpened" in self.order) and self.order["tradeOpened"]:
-            self.time = dt.datetime.strptime(self.order["time"],
-                           "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+            self.time = dt.datetime.strptime(self.order["time"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
                 self.side = self.order["tradeOpened"]["side"]
                 self.id = self.order["tradeOpened"]["id"]
@@ -367,45 +212,8 @@ class MostRecentTrade:
         return str(self.order)
 
 
-class MostRecentOrder(Account):
-    """
-    Limit Orders --> response from Oanda POST
-    """
-    def __init__(self, order, tick):
-        super().__init__()
-        self.url = self.order_url()
-        self.headers = self.get_headers()
-        self._time = dt.datetime.now().timestamp()
-        self.price = order["price"]
-        self.instrument = order["instrument"]
-        self.side = order["orderOpened"]["side"]
-        self.id = order["orderOpened"]["id"]
-        self.units = order["orderOpened"]["units"]
-        self.expiry = order["orderOpened"]["expiry"]
-        self.tick = tick
-        self.path = LoggingPaths.orders
-        self.reject = False
-
-    def working(self):
-        try:
-                resp = requests.get(self.url, headers=self.headers, verify=False).json()
-                return resp
-        except Exception as e:
-                raise ValueError(">>> Caught exception retrieving orders: %s"%e)
-
-    def delete(self):
-        try:
-                resp = requests.request("DELETE", self.url,
-                                        headers=self.headers, verify=False).json()
-                return resp
-        except Exception as e:
-                raise ValueError(">>> Caught exception retrieving orders: %s"%e)
-
-
 class OrderHandler(Account):
-    def __init__(self, symbol, tick, side, quantity,
-                            kind="market", price=0):
-        super().__init__()
+    def __init__(self, symbol, tick, side, quantity, kind="market", price=0):
         self.url = self.order_url()
         self.headers = self.get_headers()
         self.side = side
@@ -420,9 +228,9 @@ class OrderHandler(Account):
 
     def execute_price(self):
         if self.side == "buy":
-                _price = self.tick.closeBid - 0.0001
+            _price = self.tick.closeBid - 0.0001
         elif self.side == "sell":
-                _price = self.tick.closeAsk + 0.0001
+            _price = self.tick.closeAsk + 0.0001
         else:
             raise NotImplementedError(
                    ">>> Invalid side !! \n>>> Order not complete.")
@@ -446,48 +254,47 @@ class OrderHandler(Account):
                   'type': self.kind,
                   'units': self.quantity,
                   "price": self.price,
-                 "expiry": self.expiry}
+                  "expiry": self.expiry}
         return params
 
     def _send_order(self):
         if self.kind == "limit":
-                params = self.limit_order()
+            params = self.limit_order()
         elif self.kind == "market":
-                params = self.market_order()
+            params = self.market_order()
         else:
-                raise NotImplementedError(
-                ">>> Invalid order type %s, exiting. TRADE NOT DONE" % self.kind)
-
+            raise NotImplementedError(
+            ">>> Invalid order type %s, exiting. TRADE NOT DONE" % self.kind)
         try:
-                resp = requests.post(self.url, headers=self.headers,
-                                                 data=params, verify=False).json()
-                return resp, params
+            resp = requests.post(self.url, headers=self.headers,
+                                             data=params, verify=False).json()
+            return resp, params
         except Exception as e:
-                print(">>> Caught exception sending order\n%s"%(e))
-                return False
+            print(">>> Caught exception sending order\n%s"%(e))
+            return False
 
     def send_order(self):
         order, price = self._send_order()
         if order:
-                # market order
-                if "tradeOpened" in order.keys():
-                        order = MostRecentTrade(order, self.tick)
-                # limit order
-                elif "orderOpened" in order.keys():
-                        order = MostRecentOrder(order, self.tick)
-                # reject
-                elif "code" in order.keys():
-                        if order["code"] == 23 or order["code"] == 22:
-                                order = MostRecentReject(order, price)
-                                print(order)
-                        else:
-                            raise NotImplementedError(
-                            "order[\'code\'] not an integer or != 23 or 22")
-                return order
+            # market order
+            if "tradeOpened" in order.keys():
+                order = MostRecentTrade(order, self.tick)
+            # limit order
+            elif "orderOpened" in order.keys():
+                order = MostRecentOrder(order, self.tick)
+            # reject
+            elif "code" in order.keys():
+                if order["code"] == 23 or order["code"] == 22:
+                    order = MostRecentReject(order, price)
+                    print(order)
+                else:
+                    raise NotImplementedError(
+                    "order[\'code\'] not an integer or != 23 or 22")
+            return order
         else:
-                print(ValueError(
-                "%s>>> Order not complete\n"%order))
-                return False
+            print(ValueError(
+            "%s>>> Order not complete\n"%order))
+            return False
 
 class Tick:
     def __init__(self, tick):
@@ -528,132 +335,168 @@ class Tick:
             file.write(self.__repr__())
 
 
+class PnL:
+    def __init__(self, tick, position):
+        self.tick = tick
+        self.position = position
+
+    def get_pnl(self):
+        if self.position.side == "short":
+            pnl = (self.position.price - self.tick.closeAsk) * self.position.units
+        elif self.position.side == "long":
+            pnl = (self.tick.closeBid - self.position.price) * self.position.units
+        return pnl
+
+
+class MostRecentPosition:
+    def __init__(self, side, price, units):
+        self.side = side
+        self.price = price
+        self.units = units
+        self.order = [self.side, self.units, self.price]
+
+    def __repr__(self):
+        return "SIDE: %s PRICE: %s UNITS: %s\n" % (
+                self.side, np.mean(self.price), self.units)
+
+
+class Positions(Initialize):
+    def __init__(self, symbol):
+        Account.__init__(self)
+        self.symbol = symbol
+
+    def _checkPosition(self):
+        try:
+            url = self.position_url() + self.symbol
+            params = {'instruments': self.symbol,
+                       "accountId": self.id}
+            req = requests.get(url,
+                                headers=self.get_headers(),
+                                data=params).json()
+        except Exception as e:
+            print(">>> Error returning position\n%s\n%s"%(str(e), req))
+            return False
+
+        if "code" in req:
+            #print(req)
+            return False
+        elif 'side' in req:
+            _side = req['side']
+            units = req['units']
+            price = req['avgPrice']
+            if _side == 'sell': 
+                side = 'short'
+            elif _side == 'buy': 
+                side = 'long'
+            position = {'side': side,
+                        'units': units,
+                        'price': price}
+            return position
+        else:
+            print(req)
+            return False
+
+    def checkPosition(self):
+        position = self._checkPosition()
+        if position:
+            position = MostRecentPosition(position["side"],
+                                          position["price"],
+                                          position["units"])
+            return position
+        else:
+            return MostRecentPosition(0, 0, 0)
+
+
+class MostRecentExit:
+    def __init__(self, position, side, profit_loss, tick):
+        self._time = tick._time
+        self.id = ("|").join([str(x) for x in position["ids"]])
+        self.instrument = position["instrument"]
+        self.price = position["price"]
+        self.units = position["units"]
+        self.profit_loss = profit_loss
+        self.side = side
+        self.tick = tick
+        self.path = LoggingPaths.trades
+
+
+class ExitPosition(Account):
+    def __init__(self):
+        Account.__init__()
+        self.url = self.position_url() + self.symbol
+        self.headers = self.get_headers()
+
+    def _closePosition(self, symbol):
+        try:
+            req = requests.delete(self.url,
+                                  headers=self.headers).json()
+        except Exception as e:
+            print('Unable to delete positions: \n', str(e))
+            return req
+        try:
+            ids = req['ids']
+            instrument = req['instrument']
+            units = req['totalUnits']
+            price = req['price']
+            orderData = {'ids': ids, 'instrument': instrument,
+                            'units': units, 'price': price}
+            return orderData
+        except Exception as e:
+            print('Caught exception closing positions: \n%s\n%s'%(str(e), req))
+            return False
+
+    def closePosition(self, position, profit_loss, tick):
+        exit = self._closePosition("EUR_USD")
+        if exit["units"] != 0:
+            exit = MostRecentExit(exit,
+                                  position.side,
+                                  profit_loss, tick)
+            exit.write_exit()
+            return exit
+        else:
+            print(">>> No positions removed\n(%s)"%position)
+            return False
+
+
 class StreamPrices(Account):
-        def __init__(self, instrument):
-            super().__init__()
-            self.instrument = instrument
+    def __init__(self, instrument):
+        Account.__init__(self)
+        self.instrument = instrument
 
-        def stream(self):
+    def stream(self):
+        try:
+            s = requests.Session()
+            headers = self.get_headers()
+            params = {"instruments": self.instrument,
+                      "accessToken": self.token,
+                      "accountId": self.id}
+            req = requests.Request("GET",
+                                    self.streaming,
+                                    headers=headers,
+                                    params=params)
+            pre = req.prepare()
+            resp = s.send(pre, stream=True, verify=False)
+        except Exception as e:
+            print(">>> Caught exception during request\n{}".format(e))
+            s.close()
+        finally:
+            return resp
+
+    def prices(self):
+        for tick in self.stream():
             try:
-                    s = requests.Session()
-                    headers = self.get_headers()
-                    params = {"instruments": self.instrument,
-                            "accessToken": self.token,
-                            "accountId": self.id}
-
-                    req = requests.Request("GET",
-                                            self.streaming,
-                                            headers=headers,
-                                            params=params)
-                    pre = req.prepare()
-                    resp = s.send(pre, stream=True, verify=False)
-            except Exception as e:
-                    print(">>> Caught exception during request\n{}".format(e))
-                    s.close()
-            finally:
-                    return resp
-
-        def prices(self):
-            for tick in self.stream():
-                try:
-                    tick = json.loads(str(tick, "utf-8"))
-                except json.decoder.JSONDecodeError as e:
-                    prev_tick = '%s' % (str(tick, "utf-8"))
-                    print(prev_tick)
-                    continue
-                if "tick" in tick.keys():
-                    tick = tick["tick"]
-                    print(tick)
+                tick = json.loads(str(tick, "utf-8"))
+            except json.decoder.JSONDecodeError as e:
+                prev_tick = '%s' % (str(tick, "utf-8"))
+                print(prev_tick)
+                continue
+            if "tick" in tick.keys():
+                tick = tick["tick"]
+                print(tick)
 
 
 def main(instruments):
-        StreamPrices(instruments).prices()
-
-
-class Generic(FX):
-        def __init__(self, name):
-            super().__init__(name)
-            self.stoch_event()
-
-        def signals(self):
-            return Signals(self.COUNT,
-                           self.SYMBOL,
-                           self.LONGWIN,
-                           self.SHORTWIN,
-                           "S5")
-
-        def order_handler(self, tick, side):
-            trade = OrderHandler(self.SYMBOL,
-                            tick,
-                            side,
-                            self.QUANTITY).send_order()
-            if trade.reject:
-                print("[!]  -- Order rejected -- ")
-            return trade
-
-        def positions(self):
-            position = Positions().checkPosition(self.SYMBOL)
-            return position
-
-        def close_out(self, tick, position, profit_loss):
-            close = ExitPosition().closePosition(position,
-                                                profit_loss,
-                                                tick)
-            return close
-
-        def check_position(self, tick):
-           # while True:
-           #     tick = self.signal_queue.get()[2]
-
-            # get positions
-            position = self.positions()
-            #self.position_queue.put(position.units)
-
-            if position.units != 0:
-                self.risk_control(tick, position)
-
-        def risk_control(self, tick, position):
-                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
-                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
-                profit_loss = PnL(tick, position).get_pnl()
-
-                if profit_loss < lower_limit:
-                    self.close_out(tick,
-                                    position,
-                                    profit_loss)
-
-                if profit_loss > upper_limit:
-                    self.close_out(tick,
-                                    position,
-                                    profit_loss)
-
-
-class StochEventAlgo(Generic):
-	def __init__(self, name):
-		super().__init__(name)
-		self.signal_queue = Queue()
-		self.position_queue = Queue()
-
-	def signal_listen(self):
-	    while True:
-	        channel, K_to_D, tick = self.signal_queue.get()
-	        K, D = tick.K, tick.D
-	        print(tick)
-	        position = self.position_queue.get()
-
-	def trade_model(self):
-	    model = self.signals()
-	    tick = model.tick
-	    channel = model.channel
-	    K_to_D = model.stoch
-
-	    while True:
-	        self.signal_queue.put([channel, K_to_D, tick])
-	        sleep(5)
-	        channel = model.channel
-	        K_to_D = model.stoch
-	        model = self.signals()
-	        tick = model.tick
+    StreamPrices(instruments).prices()
 
 
 if __name__ == '__main__':
@@ -663,7 +506,7 @@ if __name__ == '__main__':
         symbol = argv[1]
         tick = Signals(1250, symbol, 900, 450).tick
         #order = OrderHandler(argv[3], tick, symbol, argv[2]).send_order()
-        position = Positions().checkPosition(symbol)
+        position = Positions(symbol).checkPosition()
 
         print(position)
         print(tick)
@@ -761,7 +604,7 @@ if __name__ == '__main__':
 #
 #class Conditions(Indicators):
 #    def __init__(self,kup, kdown):
-#        super().__init__(kup, kdown)
+#        Indicators.__init__(kup, kdown)
 #
 #    def cross(self):
 #        if self.stoch_upcross(K_to_D, [K, D]):
@@ -778,3 +621,118 @@ if __name__ == '__main__':
 #            self.order_handler(tick, "buy")
 #
 #
+#class Generic(FX):
+#        def __init__(self, name):
+#            FX.__init__(name)
+#            self.stoch_event()
+#
+#        def signals(self):
+#            return Signals(self.COUNT,
+#                           self.SYMBOL,
+#                           self.LONGWIN,
+#                           self.SHORTWIN,
+#                           "S5")
+#
+#        def order_handler(self, tick, side):
+#            trade = OrderHandler(self.SYMBOL,
+#                            tick,
+#                            side,
+#                            self.QUANTITY).send_order()
+#            if trade.reject:
+#                print("[!]  -- Order rejected -- ")
+#            return trade
+#
+#        def positions(self):
+#            position = Positions(self.SYMBOL).checkPosition()
+#            return position
+#
+#        def close_out(self, tick, position, profit_loss):
+#            close = ExitPosition().closePosition(position,
+#                                                profit_loss,
+#                                                tick)
+#            return close
+#
+#        def check_position(self, tick):
+#           # while True:
+#           #     tick = self.signal_queue.get()[2]
+#
+#            # get positions
+#            position = self.positions()
+#            #self.position_queue.put(position.units)
+#
+#            if position.units != 0:
+#                self.risk_control(tick, position)
+#
+#        def risk_control(self, tick, position):
+#                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
+#                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
+#                profit_loss = PnL(tick, position).get_pnl()
+#
+#                if profit_loss < lower_limit:
+#                    self.close_out(tick,
+#                                    position,
+#                                    profit_loss)
+#
+#                if profit_loss > upper_limit:
+#                    self.close_out(tick,
+#                                    position,
+#                                    profit_loss)
+#
+#
+#class StochEventAlgo(Generic):
+#	def __init__(self, name):
+#		Generic.__init__(name)
+#		self.signal_queue = Queue()
+#		self.position_queue = Queue()
+#
+#	def signal_listen(self):
+#	    while True:
+#	        channel, K_to_D, tick = self.signal_queue.get()
+#	        K, D = tick.K, tick.D
+#	        print(tick)
+#	        position = self.position_queue.get()
+#
+#	def trade_model(self):
+#	    model = self.signals()
+#	    tick = model.tick
+#	    channel = model.channel
+#	    K_to_D = model.stoch
+#
+#	    while True:
+#	        self.signal_queue.put([channel, K_to_D, tick])
+#	        sleep(5)
+#	        channel = model.channel
+#	        K_to_D = model.stoch
+#	        model = self.signals()
+#	        tick = model.tick
+#
+#class MostRecentOrder(Account):
+#    """
+#    Limit Orders --> response from Oanda POST
+#    """
+#    def __init__(self, order, tick):
+#        self._time = dt.datetime.now().timestamp()
+#        self.price = order["price"]
+#        self.instrument = order["instrument"]
+#        self.side = order["orderOpened"]["side"]
+#        self.id = order["orderOpened"]["id"]
+#        self.units = order["orderOpened"]["units"]
+#        self.expiry = order["orderOpened"]["expiry"]
+#        self.tick = tick
+#        self.path = LoggingPaths.orders
+#        self.reject = False
+#
+#    def working(self):
+#        try:
+#                resp = requests.get(self.url, headers=self.headers, verify=False).json()
+#                return resp
+#        except Exception as e:
+#                raise ValueError(">>> Caught exception retrieving orders: %s"%e)
+#
+#    def delete(self):
+#        try:
+#                resp = requests.request("DELETE", self.url,
+#                                        headers=self.headers, verify=False).json()
+#                return resp
+#        except Exception as e:
+#                raise ValueError(">>> Caught exception retrieving orders: %s"%e)
