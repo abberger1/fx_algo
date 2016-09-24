@@ -1,12 +1,11 @@
 #from time import sleep
 from config import FX, TradeModelError
-
 from position import  Positions, ExitPosition, PnL
 from order import OrderHandler
 from util import Signals
 
 
-class Initialize:
+class Initialize(object):
     def __init__(self, path_to_config):
         self.path_to_config = path_to_config
 
@@ -25,7 +24,8 @@ class Initialize:
         setting = [x for x in params if params.index(x) % 2 != 0]
         return name, setting
 
-class Parameters:
+
+class Parameters(object):
     def __init__(self, path_to_config):
         self.is_initialized = Initialize(path_to_config).init_model()
         param = self.get_parameters()
@@ -53,6 +53,61 @@ class Parameters:
                 raise TradeModelError(0)
         return False
 
+
+class Initial(object):
+    def __init__(self, name):
+        self.name = Confs.page[name]
+
+    def _config(self):
+        with open(self.name) as csv_file:
+            try:
+                p = csv_file.read().replace("\n", ",").split(",")
+                field = [x for x in p if p.index(x)%2==0]
+                value = [x for x in p if p.index(x)%2!=0]
+            except Exception as e:
+                raise TradeModelError(0, message=e)
+        return field, value
+
+
+class FX(object):
+    def __init__(self, name):
+        self._init = self.setup(name) # calls Initial
+        self.COUNT = self._init[0]
+        self.LONGWIN = self._init[1]
+        self.SHORTWIN = self._init[2]
+        self.SYMBOL = self._init[3]
+        self.QUANTITY = self._init[4]
+        self.MAXPOS = self._init[5]
+        self.MAXLOSS = self._init[6]
+        self.MAXGAIN = self._init[7]
+        self.LIMIT = self._init[8]
+        self.MODEL = []
+
+    def setup(self, name):
+        if name in Confs.page.keys():
+            try:
+                Initial(name)._config()[1] # second column
+            except Exception as e:
+                raise TradeModelError(0, message=e)
+        else:
+            raise TradeModelError(1, name)
+
+    def stoch_event(self):
+        self.MODEL.append("stoch")
+        self.KUP = self._init[9]
+        self.KDOWN = self._init[10]
+
+    def bband_event(self):
+        self.MODEL.append("bband")
+
+    def mavg_event(self):
+        self.MODEL.append("mavg")
+
+    def macd_event(self):
+        self.MODEL.append("macd")
+
+    def adx_event(self):
+        self.MODEL.append("adx")
 
 
 class Indicators(object):
@@ -90,6 +145,7 @@ class Indicators(object):
         else:
             return False
 
+
 class Conditions(Indicators):
     def __init__(self,kup, kdown):
         Indicators.__init__(kup, kdown)
@@ -123,9 +179,9 @@ class Generic(FX):
 
         def order_handler(self, tick, side):
             trade = OrderHandler(self.SYMBOL,
-                            tick,
-                            side,
-                            self.QUANTITY).send_order()
+                                 tick,
+                                 side,
+                                 self.QUANTITY).send_order()
             if trade.reject:
                 print("[!]  -- Order rejected -- ")
             return trade
@@ -135,9 +191,7 @@ class Generic(FX):
             return position
 
         def close_out(self, tick, position, profit_loss):
-            close = ExitPosition().closePosition(position,
-                                                profit_loss,
-                                                tick)
+            close = ExitPosition().closePosition(position, profit_loss, tick)
             return close
 
         def check_position(self, tick):
@@ -152,8 +206,8 @@ class Generic(FX):
                 self.risk_control(tick, position)
 
         def risk_control(self, tick, position):
-                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
-                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
+                lower_limit = self.MAXLOSS * (position.units/self.QUANTITY)
+                upper_limit = self.MAXGAIN * (position.units/self.QUANTITY)
                 profit_loss = PnL(tick, position).get_pnl()
 
                 if profit_loss < lower_limit:
