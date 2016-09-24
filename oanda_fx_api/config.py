@@ -16,7 +16,7 @@ class Paths:
 
 
 class Config:
-    path_to_login = Paths.HOME + "/src/python/fx_algo/oanda_fx_api/Tokens"
+    path_to_login = Paths.HOME + "/src/python/fx_algo/oanda_fx_api/tokens"
     venue = "https://api-fxpractice.oanda.com"
     streaming = "https://stream-fxpractice.oanda.com/v1/prices"
     account_url = venue + "/v1/accounts/"
@@ -69,9 +69,7 @@ class ModelLog(object):
 
 
 class Confs:
-    page = {"fx_stchevnt": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME,
-            "fx_mvgavg": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME,
-            "fx_bbands": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME}
+    page = {"fx_stchevnt": "%s/src/python/oanda/fx_algo/oanda_fx_api/params" % Paths.HOME}
 
 
 class TradeModelError(Exception):

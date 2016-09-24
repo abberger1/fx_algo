@@ -1,6 +1,6 @@
 import requests
 import datetime as dt
-from config import LoggingPaths
+from config import Paths
 
 
 class MostRecentOrder:
@@ -17,28 +17,26 @@ class MostRecentOrder:
         self.units = order["orderOpened"]["units"]
         self.expiry = order["orderOpened"]["expiry"]
         self.tick = tick
-        self.path = LoggingPaths.orders
+        self.path = Paths.orders
         self.reject = False
 
     def working(self):
         try:
-                resp = requests.get(self.url, headers=self.headers, verify=False).json()
-                return resp
+            resp = requests.get(self.url, headers=self.headers, verify=False).json()
+            return resp
         except Exception as e:
-                raise ValueError(">>> Caught exception retrieving orders: %s"%e)
+            raise ValueError(">>> Caught exception retrieving orders: %s"%e)
 
     def delete(self):
         try:
-                resp = requests.request("DELETE", self.url,
-                                        headers=self.headers, verify=False).json()
-                return resp
+            resp = requests.request("DELETE", self.url, headers=self.headers, verify=False).json()
+            return resp
         except Exception as e:
                 raise ValueError(">>> Caught exception retrieving orders: %s"%e)
 
 
 class MostRecentReject:
-    def __init__(self, account, order, params):
-        self.account = account
+    def __init__(self, order, params):
         self._time = dt.datetime.now().timestamp()
         self.code = order["code"]
         self.message = order["message"]
@@ -62,8 +60,8 @@ class MostRecentTrade:
     def __init__(self, order, tick):
         self.order = order
         self.tick = tick
-        self.path = LoggingPaths.trades
-        self._trade = self._trade()
+        self.path = Paths.trades
+        self.trade = self._trade()
         self.reject = False
 
     def _trade(self):
@@ -78,6 +76,7 @@ class MostRecentTrade:
                 return True
             except KeyError as e:
                 print("Caught exception in closed_trade\n%s"%e)
+
         elif "tradeOpened" in self.order and self.order["tradeOpened"]:
             self.time = dt.datetime.strptime(self.order["time"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
@@ -140,33 +139,24 @@ class OrderHandler:
         return params
 
     def _send_order(self):
-        if self.kind == "limit":
-            params = self.limit_order()
-        elif self.kind == "market":
-            params = self.market_order()
-        else:
-            raise NotImplementedError(
-            "Invalid order type %s. Order not done" % self.kind)
+        params = self.market_order() if self.kind == 'market' else self.limit_order()
         try:
             resp = requests.post(self.url, headers=self.headers, data=params, verify=False).json()
-            return resp, params
         except Exception as e:
-            print(">>> Caught exception sending order\n%s"%(e))
+            print(">>> Caught exception sending order\n%s" % e)
             return False
+        return resp, params
 
     def send_order(self):
-        order, price = self._send_order()
+        order, params = self._send_order()
         if order:
-            # market order
             if "tradeOpened" in order.keys():
                 order = MostRecentTrade(order, self.tick)
-            # limit order
             elif "orderOpened" in order.keys():
                 order = MostRecentOrder(order, self.tick)
-            # reject
             elif "code" in order.keys():
                 if order["code"] == 23 or order["code"] == 22:
-                    order = MostRecentReject(order, price)
+                    order = MostRecentReject(order, params)
                     print(order)
                 else:
                     raise NotImplementedError("order[\'code\'] not an integer or != 23 or 22")
@@ -174,4 +164,3 @@ class OrderHandler:
         else:
             print("%s Order not done\n" % order)
             return False
-

@@ -10,12 +10,12 @@ class StreamPrices(object):
         self.instrument = instrument
 
     def stream(self):
+        params = {"instruments": self.instrument,
+                  "accessToken": self.account.token,
+                  "accountId": self.account.id}
+        headers = self.account.headers
         try:
             s = requests.Session()
-            headers = self.account.headers
-            params = {"instruments": self.instrument,
-                      "accessToken": self.account.token,
-                      "accountId": self.account.id}
             req = requests.Request("GET", self.account.streaming, headers=headers, params=params)
             pre = req.prepare()
             resp = s.send(pre, stream=True, verify=False)
@@ -52,13 +52,24 @@ class GetCandles(object):
     def request(self):
         try:
             req = requests.get(self.account.venue+"/v1/candles", headers=self.headers, params=self.params).json()
-            candles = pd.DataFrame(req['candles'])
-            candles["symbol"] = self.symbol
-            candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
-            candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
-            for x in ['open', 'high', 'low', 'close']:
-                candles['%sMid' % x] = (candles['%sAsk' % x] + candles['%sBid' % x]) / 2
-            return candles
         except Exception as e:
             print('%s\n>>> Error: No candles in JSON response:' % e)
             return False
+        candles = pd.DataFrame(req['candles'])
+        candles["symbol"] = self.symbol
+        candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
+        candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
+        for x in ['open', 'high', 'low', 'close']:
+            candles['%sMid' % x] = (candles['%sAsk' % x] + candles['%sBid' % x]) / 2
+        return candles
+
+
+if __name__ == '__main__':
+    from account import Account
+
+    acc = Account()
+    candles = GetCandles(acc, 1250, 'EUR_USD', 'S5').request()
+    print(candles.tail())
+
+    stream = StreamPrices(acc, 'EUR_USD')
+    stream.prices()

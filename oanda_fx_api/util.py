@@ -106,15 +106,15 @@ class Compute(GetCandles):
 class Signals(Compute):
     def __init__(self, account, count, symbol, longWin, shortWin, granularity="S5"):
         Compute.__init__(self, account, count, symbol, longWin, shortWin, granularity)
-        self.channel, self.stoch = 50, 50
-        self.bbands_channel = 0
+        self.channel, self.stoch = self.stoch_signals()
+        self.bbands_channel = self.bband_signals()
         self.mavg_state = self.moving_avg_signals()
 
     def stoch_signals(self):
         K, D = self.tick.K, self.tick.D
-        if self.KUP < K < 90:
+        if 80 < K < 90:
             channel = 1
-        elif 10 < K < self.KDOWN:
+        elif 10 < K < 20:
             channel = -1
         else:
             channel = 0
@@ -155,4 +155,3 @@ if __name__ == '__main__':
 
         print(position)
         print(tick)
-        StreamPrices(account, symbol).prices()

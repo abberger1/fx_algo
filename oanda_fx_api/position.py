@@ -10,10 +10,9 @@ class PnL:
 
     def get_pnl(self):
         if self.position.side == "short":
-            pnl = (self.position.price - self.tick.closeAsk) * self.position.units
+            return (self.position.price - self.tick.closeAsk) * self.position.units
         elif self.position.side == "long":
-            pnl = (self.tick.closeBid - self.position.price) * self.position.units
-        return pnl
+            return (self.tick.closeBid - self.position.price) * self.position.units
 
 
 class MostRecentPosition:
@@ -33,34 +32,28 @@ class Positions:
         self.account = account
         self.headers = self.account.headers
         self.symbol = symbol
+        self.url = '%s%s' % (self.account.positions, self.symbol)
 
     def _checkPosition(self):
+        params = {'instruments': self.symbol,
+                  "accountId": self.account.id}
         try:
-            url = self.account.positions + self.symbol
-            params = {'instruments': self.symbol,
-                       "accountId": self.account.id}
-            req = requests.get(url, headers=self.headers, data=params).json()
+            req = requests.get(self.url, headers=self.headers, data=params).json()
         except Exception as e:
-            print(">>> Error returning position\n%s\n%s"%(str(e), req))
+            print(">>> Error returning position\n%s\n%s" % (str(e), req))
             return False
 
         if "code" in req:
             return False
         elif 'side' in req:
-            _side = req['side']
-            units = req['units']
-            price = req['avgPrice']
-            if _side == 'sell': 
-                side = 'short'
-            elif _side == 'buy': 
-                side = 'long'
+            side = 'short' if req['side'] == 'sell' else 'long'
             position = {'side': side,
-                        'units': units,
-                        'price': price}
-            return position
+                        'units': req['units'],
+                        'price': req['avgPrice']}
         else:
             print(req)
             return False
+        return position
 
     def checkPosition(self):
         position = self._checkPosition()
@@ -76,7 +69,7 @@ class Positions:
 class MostRecentExit:
     def __init__(self, position, side, profit_loss, tick):
         self._time = tick._time
-        self.id = ("|").join([str(x) for x in position["ids"]])
+        self.id = ("-").join([str(x) for x in position["ids"]])
         self.instrument = position["instrument"]
         self.price = position["price"]
         self.units = position["units"]
@@ -99,12 +92,8 @@ class ExitPosition:
             print('Unable to delete positions: \n', str(e))
             return req
         try:
-            ids = req['ids']
-            instrument = req['instrument']
-            units = req['totalUnits']
-            price = req['price']
-            orderData = {'ids': ids, 'instrument': instrument,
-                            'units': units, 'price': price}
+            orderData = {'ids': req['ids'], 'instrument': req['instrument'],
+                         'units': req['totalUnits'], 'price': req['price']}
             return orderData
         except Exception as e:
             print('Caught exception closing positions: \n%s\n%s'%(str(e), req))
