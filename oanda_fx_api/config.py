@@ -2,15 +2,24 @@ import os
 import datetime as dt
 
 HOME = os.getenv('HOME')
+LOG = "%s/tmp/" % HOME
+
+class Config:
+    path_to_login = HOME + "/src/python/fx_algo/oanda_fx_api/Tokens"
+    venue = "https://api-fxpractice.oanda.com"
+    streaming = "https://stream-fxpractice.oanda.com/v1/prices"
+    account_url = venue + "/v1/accounts/"
+
 
 class LoggingPaths:
     global HOME
-    trades = HOME + "/Projects/Logs/trade_logs"
-    orders = HOME + "/Downloads/oanda_order_logs"
-    model = HOME + "/Downloads/model_logs"
+    global LOG
+    trades = "%s/trade_log" % LOG
+    orders = "%s/order_log" % LOG
+    model = "%s/model_log" % LOG
 
     def __init__(self, symbol):
-        self.ticks = HOME + "/Projects/Logs/%s_ticks" % symbol
+        self.ticks = "%s/%s_tick" % (LOG, symbol)
 
 
 class ModelLog:
@@ -59,17 +68,11 @@ class ModelLog:
                 file.write(msg+"\n")
 
 
-class Config:
-    path_to_login = HOME + "/src/python/fx_algo/oanda_fx_api/Tokens"
-    venue = "https://api-fxpractice.oanda.com"
-    streaming = "https://stream-fxpractice.oanda.com/v1/prices"
-    account_url = venue + "/v1/accounts/"
-
-
 class Confs:
-    page = {"fx_stchevnt": HOME + "/src/python/oanda/fx_algo/oanda_fx_api/params.csv",
-            "fx_mvgavg": HOME + "/src/python/oanda/fx_algo/oanda_fx_api/params.csv",
-            "fx_bbands": HOME + "src/python/oanda/fx_algo/oanda_fx_api/params.csv"}
+    global HOME
+    page = {"fx_stchevnt": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME,
+            "fx_mvgavg": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME,
+            "fx_bbands": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME}
 
 
 class TradeModelError(Exception):
@@ -79,30 +82,27 @@ class TradeModelError(Exception):
                 3: "Unknown order status. Check if trade done."}
 
     def __init__(self, error, message=""):
-            self.error = TradeModelError.messages[error]
-            self.message = message
-            self.callback()
+        self.error = TradeModelError.messages[error]
+        self.message = message
+        self.callback()
 
     def callback(self):
-            if self.message:
-                    super().__init__(self.error, self.message)
-            else:
-                    super().__init__(self.error)
+        if self.message: super().__init__(self.error, self.message)
+        else: super().__init__(self.error)
 
 class Initial(object):
-        def __init__(self, name):
-                self.name = Confs.page[name]
+    def __init__(self, name):
+        self.name = Confs.page[name]
 
-        def config(self):
-                with open(self.name) as csv_file:
-                        try:
-                                p = csv_file.read().replace("\n", ",").split(",")
-
-                                field = [x for x in p if p.index(x)%2==0]
-                                value = [x for x in p if p.index(x)%2!=0]
-                        except Exception as e:
-                                raise TradeModelError(0, message=e)
-                return field, value
+    def config(self):
+        with open(self.name) as csv_file:
+                try:
+                        p = csv_file.read().replace("\n", ",").split(",")
+                        field = [x for x in p if p.index(x)%2==0]
+                        value = [x for x in p if p.index(x)%2!=0]
+                except Exception as e:
+                        raise TradeModelError(0, message=e)
+        return field, value
 
 
 class FX(object):

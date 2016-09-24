@@ -6,16 +6,8 @@ import requests
 import talib
 import json
 
-from config import (
-                    LoggingPaths,
-                    FX
-                    )
+from config import LoggingPaths, FX
 from account import Account
-
-
-class Initialize(Account):
-    def __init__(self):
-        Account.__init__(self)
 
 
 class StreamPrices:
@@ -26,14 +18,11 @@ class StreamPrices:
     def stream(self):
         try:
             s = requests.Session()
-            headers = self.account.get_headers()
+            headers = self.account.headers
             params = {"instruments": self.instrument,
                       "accessToken": self.account.token,
                       "accountId": self.account.id}
-            req = requests.Request("GET",
-                                    self.account.streaming,
-                                    headers=headers,
-                                    params=params)
+            req = requests.Request("GET", self.account.streaming, headers=headers, params=params)
             pre = req.prepare()
             resp = s.send(pre, stream=True, verify=False)
         except Exception as e:
@@ -61,7 +50,7 @@ class GetCandles:
         self.count = count
         self.symbol = symbol
         self.granularity = granularity
-        self.headers = account.get_headers()
+        self.headers = self.account.headers
         self.params = {'instrument' : self.symbol,
                        'granularity' : self.granularity,
                        'count' : int(self.count)}
@@ -73,10 +62,10 @@ class GetCandles:
             candles["symbol"] = self.symbol
             candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
             candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
-            candles["closeMid"] = (candles["closeAsk"]+candles["closeBid"]) / 2
-            candles["lowMid"] = (candles["lowAsk"]+candles["lowBid"]) / 2
-            candles["highMid"] = (candles["highAsk"]+candles["highBid"]) / 2
-            candles["openMid"] = (candles["openAsk"]+candles["openBid"]) / 2
+            candles["closeMid"] = (candles["closeAsk"] + candles["closeBid"]) / 2
+            candles["lowMid"] = (candles["lowAsk"] + candles["lowBid"]) / 2
+            candles["highMid"] = (candles["highAsk"] + candles["highBid"]) / 2
+            candles["openMid"] = (candles["openAsk"] + candles["openBid"]) / 2
             return candles
         except Exception as e:
             print('%s\n>>> Error: No candles in JSON response:'%e)
@@ -90,7 +79,7 @@ class Tick:
         self._time = tick["timestamp"]
         self.closeBid = tick["closeBid"]
         self.closeAsk = tick["closeAsk"]
-        self.spread = (self.closeAsk - self.closeBid) * 10000
+        self.spread = self.closeAsk - self.closeBid
         self.openMid = tick["openMid"]
         self.highMid = tick["highMid"]
         self.lowMid = tick["lowMid"]
@@ -113,13 +102,16 @@ class Tick:
         self.cum_ret = tick["cum_ret"]*10000
 
     def __repr__(self):
-        return "%s %s %s - %s" % (
-	    	self._time, self.symbol,
-	    	self.closeBid, self.closeAsk)
+        return self.__str__()
+
+    def __str__(self):
+        return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (
+	    	self._time, self.symbol, self.closeBid, self.closeAsk,
+                self.K, self.D, self.sma, self.ewma, self.upper, self.lower)
 
     def write_tick(self):
         with open(self.path, "a") as file:
-            file.write(self.__repr__())
+            file.write(self.__str__())
 
 
 class Compute(GetCandles):
@@ -185,8 +177,7 @@ class Signals(Compute):
         #self.macd_state = self.macd_signals()
 
     def stoch_signals(self):
-        K = self.tick.K
-        D = self.tick.D
+        K, D = self.tick.K, self.tick.D
         if self.KUP < K < 90:
             channel = 1
         elif 10 < K < self.KDOWN:
@@ -200,9 +191,7 @@ class Signals(Compute):
         return channel, stoch
 
     def bband_signals(self):
-        upper = self.tick.upper
-        lower = self.tick.lower
-        closeMid = self.tick.closeMid
+        upper, lower, closeMid = self.tick.upper, self.tick.lower, self.tick.closeMid
         if lower < closeMid < upper:
             channel = 0
         elif closeMid > upper:
@@ -212,8 +201,7 @@ class Signals(Compute):
         return channel
 
     def moving_avg_signals(self):
-        sma = self.tick.sma
-        ewma = self.tick.ewma
+        sma, ewma = self.tick.sma, self.tick.ewma
         if ewma > sma:
             sma_state = 1
         elif ewma < sma:
@@ -235,10 +223,8 @@ class MostRecentReject:
 
     def __str__(self):
         # code == 23
-        return "[=> REJECT %s %s @ %s (%s)" % (self._time, 
-                                               self.params['side'], 
-                                               self.params['price'], 
-                                               self.message)
+        return "[=> REJECT %s %s @ %s (%s)" % (
+                self._time, self.params['side'], self.params['price'], self.message)
 
 
 class MostRecentTrade:
@@ -250,12 +236,11 @@ class MostRecentTrade:
         self.order = order
         self.tick = tick
         self.path = LoggingPaths.trades
-        self.closed = self.closed_trade()
-        self.opened = self.opened_trade()
+        self._trade = self._trade()
         self.reject = False
 
-    def closed_trade(self):
-        if ("tradesClosed" in self.order) and self.order["tradesClosed"]:
+    def _trade(self):
+        if "tradesClosed" in self.order and self.order["tradesClosed"]:
             self.time = dt.datetime.strptime(self.order["time"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
                 self.side = self.order["tradesClosed"][0]["side"]
@@ -266,11 +251,7 @@ class MostRecentTrade:
                 return True
             except KeyError as e:
                 print("Caught exception in closed_trade\n%s"%e)
-        else:
-            pass
-
-    def opened_trade(self):
-        if ("tradeOpened" in self.order) and self.order["tradeOpened"]:
+        elif "tradeOpened" in self.order and self.order["tradeOpened"]:
             self.time = dt.datetime.strptime(self.order["time"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
             try:
                 self.side = self.order["tradeOpened"]["side"]
@@ -280,10 +261,8 @@ class MostRecentTrade:
                 self.price = self.order["price"]
                 return True
             except KeyError as e:
-                print(self.order)
                 print("Caught exception in opened_trade\n%s"%e)
-        else:
-            pass
+        return False
 
     def __repr__(self):
         return str(self.order)
@@ -292,8 +271,8 @@ class MostRecentTrade:
 class OrderHandler:
     def __init__(self, account, symbol, tick, side, quantity, kind="market", price=0):
         self.account = account
-        self.url = account.order_url()
-        self.headers = account.get_headers()
+        self.url = account.orders
+        self.headers = self.account.headers
         self.side = side
         self.quantity = quantity
         self.tick = tick
@@ -306,13 +285,11 @@ class OrderHandler:
 
     def execute_price(self):
         if self.side == "buy":
-            _price = self.tick.closeBid - 0.0001
+            return self.tick.closeBid - 0.0001
         elif self.side == "sell":
-            _price = self.tick.closeAsk + 0.0001
+            return self.tick.closeAsk + 0.0001
         else:
-            raise NotImplementedError(
-                   ">>> Invalid side !! \n>>> Order not complete.")
-        return _price
+            raise NotImplementedError("Invalid side. Order not done.")
 
     def market_order(self):
         _price = self.execute_price()
@@ -342,7 +319,7 @@ class OrderHandler:
             params = self.market_order()
         else:
             raise NotImplementedError(
-            ">>> Invalid order type %s, exiting. TRADE NOT DONE" % self.kind)
+            "Invalid order type %s. Order not done" % self.kind)
         try:
             resp = requests.post(self.url, headers=self.headers, data=params, verify=False).json()
             return resp, params
@@ -365,12 +342,10 @@ class OrderHandler:
                     order = MostRecentReject(order, price)
                     print(order)
                 else:
-                    raise NotImplementedError(
-                    "order[\'code\'] not an integer or != 23 or 22")
+                    raise NotImplementedError("order[\'code\'] not an integer or != 23 or 22")
             return order
         else:
-            print(ValueError(
-            "%s>>> Order not complete\n"%order))
+            print("%s Order not done\n" % order)
             return False
 
 
@@ -399,15 +374,15 @@ class MostRecentPosition:
                 self.side, np.mean(self.price), self.units)
 
 
-class Positions(Initialize):
+class Positions:
     def __init__(self, account, symbol):
         self.account = account
-        self.headers = account.get_headers()
+        self.headers = self.account.headers
         self.symbol = symbol
 
     def _checkPosition(self):
         try:
-            url = self.account.position_url() + self.symbol
+            url = self.account.positions + self.symbol
             params = {'instruments': self.symbol,
                        "accountId": self.account.id}
             req = requests.get(url, headers=self.headers, data=params).json()
@@ -416,7 +391,6 @@ class Positions(Initialize):
             return False
 
         if "code" in req:
-            #print(req)
             return False
         elif 'side' in req:
             _side = req['side']
@@ -462,12 +436,11 @@ class ExitPosition:
     def __init__(self, account):
         self.account = account
         self.url = self.position_url() + self.symbol
-        self.headers = account.get_headers()
+        self.headers = self.account.headers
 
     def _closePosition(self, symbol):
         try:
-            req = requests.delete(self.url,
-                                  headers=self.headers).json()
+            req = requests.delete(self.url, headers=self.headers).json()
         except Exception as e:
             print('Unable to delete positions: \n', str(e))
             return req
@@ -489,15 +462,10 @@ class ExitPosition:
             exit = MostRecentExit(exit,
                                   position.side,
                                   profit_loss, tick)
-            exit.write_exit()
             return exit
         else:
             print(">>> No positions removed\n(%s)"%position)
             return False
-
-
-
-
 
 
 if __name__ == '__main__':
