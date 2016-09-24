@@ -1,6 +1,6 @@
 import requests
 import numpy as np
-from config import LoggingPaths
+from config import Paths
 
 
 class PnL:
@@ -83,7 +83,7 @@ class MostRecentExit:
         self.profit_loss = profit_loss
         self.side = side
         self.tick = tick
-        self.path = LoggingPaths.trades
+        self.path = Paths.trades
 
 
 class ExitPosition:

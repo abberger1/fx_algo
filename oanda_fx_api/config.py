@@ -1,30 +1,30 @@
 import os
 import datetime as dt
 
-HOME = os.getenv('HOME')
-LOG = "%s/tmp/" % HOME
-
-class Config:
-    path_to_login = HOME + "/src/python/fx_algo/oanda_fx_api/Tokens"
-    venue = "https://api-fxpractice.oanda.com"
-    streaming = "https://stream-fxpractice.oanda.com/v1/prices"
-    account_url = venue + "/v1/accounts/"
 
 
-class LoggingPaths:
-    global HOME
-    global LOG
+class Paths:
+    HOME = os.getenv('HOME')
+    LOG = "%s/tmp/" % HOME
+
     trades = "%s/trade_log" % LOG
     orders = "%s/order_log" % LOG
     model = "%s/model_log" % LOG
 
     def __init__(self, symbol):
-        self.ticks = "%s/%s_tick" % (LOG, symbol)
+        self.ticks = "%s/%s_tick" % (self.LOG, symbol)
 
 
-class ModelLog:
+class Config:
+    path_to_login = Paths.HOME + "/src/python/fx_algo/oanda_fx_api/Tokens"
+    venue = "https://api-fxpractice.oanda.com"
+    streaming = "https://stream-fxpractice.oanda.com/v1/prices"
+    account_url = venue + "/v1/accounts/"
+
+
+class ModelLog(object):
     def __init__(self, SYMBOL, COUNT, LONGWIN, SHORTWIN):
-        self.path = LoggingPaths.model
+        self.path = Paths.model
         self.SYMBOL = SYMBOL
         self.COUNT = COUNT
         self.LONGWIN = LONGWIN
@@ -69,10 +69,9 @@ class ModelLog:
 
 
 class Confs:
-    global HOME
-    page = {"fx_stchevnt": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME,
-            "fx_mvgavg": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME,
-            "fx_bbands": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % HOME}
+    page = {"fx_stchevnt": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME,
+            "fx_mvgavg": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME,
+            "fx_bbands": "%s/src/python/oanda/fx_algo/oanda_fx_api/params.csv" % Paths.HOME}
 
 
 class TradeModelError(Exception):

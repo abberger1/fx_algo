@@ -2,15 +2,15 @@ import statsmodels.tsa.stattools as ts
 import talib
 
 from prices import StreamPrices, GetCandles
-from config import LoggingPaths, FX
+from config import Paths
 from position import Positions
 from account import Account
 
 
-class Tick:
+class Tick(object):
     def __init__(self, tick):
         self.symbol = tick["symbol"]
-        self.path = LoggingPaths(self.symbol).ticks
+        self.path = Paths(self.symbol).ticks
         self._time = tick["timestamp"]
         self.closeBid = tick["closeBid"]
         self.closeAsk = tick["closeAsk"]
@@ -108,8 +108,7 @@ class Signals(Compute):
         Compute.__init__(self, account, count, symbol, longWin, shortWin, granularity)
         self.channel, self.stoch = 50, 50
         self.bbands_channel = 0
-        #self.mavg_state = self.moving_avg_signals()
-        #self.macd_state = self.macd_signals()
+        self.mavg_state = self.moving_avg_signals()
 
     def stoch_signals(self):
         K, D = self.tick.K, self.tick.D
@@ -143,6 +142,7 @@ class Signals(Compute):
             sma_state = -1
         return sma_state
 
+
 if __name__ == '__main__':
     from sys import argv
 
@@ -156,196 +156,3 @@ if __name__ == '__main__':
         print(position)
         print(tick)
         StreamPrices(account, symbol).prices()
-
-
-
-#class Initialize:
-#	def __init__(self, path_to_config):
-#		self.path_to_config = path_to_config
-#
-#	def init_model(self):
-#		try:
-#			name, setting = self.set_params()
-#		except Exception as e:
-#			print("Failed to initialize:\n%s" % e)	
-#			return False
-#		return name, setting
-#
-#	def set_params(self):
-#		params = open(self.path_to_config)
-#		params = params.read().replace("\n", ",").split(",")
-#		name = [x for x in params if params.index(x)%2==0]
-#		setting = [x for x in params if params.index(x)%2!=0]
-#		return name, setting
-
-#class Parameters:
-#	def __init__(self, path_to_config):
-#		self.is_initialized = Initialize(path_to_config).init_model()
-#		param = self.get_parameters()
-#		self.COUNT = param[0]
-#		self.LONGWIN = param[1]
-#		self.SHORTWIN = param[2]
-#		self.SYMBOL = param[3]
-#		self.QUANTITY = param[4]
-#		self.MAXPOS = param[5]
-#		self.MAXLOSS = param[6]
-#		self.MAXGAIN = param[7] 
-#		self.LIMIT = param[8]
-#		self.KUP = param[9]
-#		self.KDOWN = param[10]
-#		self.TREND_THRESH = param[11] 
-#		self.signal_queue = Queue()
-#		self.position_queue = Queue()
-#		#self.model_log().start()
-#
-#	def __repr__(self):
-#		return "SYMBOL:%s\nCOUNT:%s\nMAXPOS:%s\n" % (
-#			self.SYMBOL, self.COUNT, self.MAXPOS)
-#
-#	def get_parameters(self):
-#		if self.is_initialized:
-#	    		return self.is_initialized[1]
-#		else:
-#	    		print("Warning: model not initialized")
-#		return False
-#
-#
-#
-#class Indicators(object):
-#    def __init__(self, kup, kdown):
-#        self.KUP = kup
-#        self.KDOWN = kdown
-#
-#    def kthresh_up_cross(self, chan, param):
-#        """ Upper threshold signal (self.KUP) """
-#        if (chan == 0) and (param > self.KUP):
-#            return True
-#        else:
-#            return False
-#
-#    def kthresh_down_cross(self, chan, param):
-#        """ Lower threshold signal (self.KDOWN) """
-#        if (chan == 0) and (param < self.KDOWN):
-#            return True
-#        else:
-#            return False
-#
-#    def stoch_upcross(self, K_to_D, params):
-#        K, D = params
-#        if (K_to_D  == -1) and  (K > D):
-#            if (K < self.KDOWN):
-#                return True
-#        else:
-#            return False
-#
-#    def stoch_downcross(self, K_to_D, params):
-#        K, D = params
-#        if (K_to_D  == 1) and  (K < D):
-#            if (K > self.KUP):
-#                return True
-#        else:
-#            return False
-#
-#class Conditions(Indicators):
-#    def __init__(self,kup, kdown):
-#        Indicators.__init__(kup, kdown)
-#
-#    def cross(self):
-#        if self.stoch_upcross(K_to_D, [K, D]):
-#            self.order_handler(tick, "buy")
-#
-#        if self.stoch_downcross(K_to_D, [K, D]):
-#            self.order_handler(tick, "sell")
-#
-#    def thresh(self):
-#        if self.kthresh_up_cross(channel, K):
-#            self.order_handler(tick, "sell")
-#
-#        elif self.kthresh_down_cross(channel, K):
-#            self.order_handler(tick, "buy")
-#
-#
-#class Generic(FX):
-#        def __init__(self, name):
-#            FX.__init__(name)
-#            self.stoch_event()
-#
-#        def signals(self):
-#            return Signals(self.COUNT,
-#                           self.SYMBOL,
-#                           self.LONGWIN,
-#                           self.SHORTWIN,
-#                           "S5")
-#
-#        def order_handler(self, tick, side):
-#            trade = OrderHandler(self.SYMBOL,
-#                            tick,
-#                            side,
-#                            self.QUANTITY).send_order()
-#            if trade.reject:
-#                print("[!]  -- Order rejected -- ")
-#            return trade
-#
-#        def positions(self):
-#            position = Positions(self.SYMBOL).checkPosition()
-#            return position
-#
-#        def close_out(self, tick, position, profit_loss):
-#            close = ExitPosition().closePosition(position,
-#                                                profit_loss,
-#                                                tick)
-#            return close
-#
-#        def check_position(self, tick):
-#           # while True:
-#           #     tick = self.signal_queue.get()[2]
-#
-#            # get positions
-#            position = self.positions()
-#            #self.position_queue.put(position.units)
-#
-#            if position.units != 0:
-#                self.risk_control(tick, position)
-#
-#        def risk_control(self, tick, position):
-#                lower_limit = self.MAXLOSS*(position.units/self.QUANTITY)
-#                upper_limit = self.MAXGAIN*(position.units/self.QUANTITY)
-#                profit_loss = PnL(tick, position).get_pnl()
-#
-#                if profit_loss < lower_limit:
-#                    self.close_out(tick,
-#                                    position,
-#                                    profit_loss)
-#
-#                if profit_loss > upper_limit:
-#                    self.close_out(tick,
-#                                    position,
-#                                    profit_loss)
-
-
-#class StochEventAlgo(Generic):
-#	def __init__(self, name):
-#		Generic.__init__(name)
-#		self.signal_queue = Queue()
-#		self.position_queue = Queue()
-#
-#	def signal_listen(self):
-#	    while True:
-#	        channel, K_to_D, tick = self.signal_queue.get()
-#	        K, D = tick.K, tick.D
-#	        print(tick)
-#	        position = self.position_queue.get()
-#
-#	def trade_model(self):
-#	    model = self.signals()
-#	    tick = model.tick
-#	    channel = model.channel
-#	    K_to_D = model.stoch
-#
-#	    while True:
-#	        self.signal_queue.put([channel, K_to_D, tick])
-#	        sleep(5)
-#	        channel = model.channel
-#	        K_to_D = model.stoch
-#	        model = self.signals()
-#	        tick = model.tick

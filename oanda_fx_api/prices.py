@@ -4,7 +4,7 @@ import requests
 import json
 
 
-class StreamPrices:
+class StreamPrices(object):
     def __init__(self, account, instrument):
         self.account = account
         self.instrument = instrument
@@ -38,7 +38,7 @@ class StreamPrices:
                 print(tick)
 
 
-class GetCandles:
+class GetCandles(object):
     def __init__(self, account, count, symbol, granularity):
         self.account = account
         self.count = count
@@ -56,13 +56,9 @@ class GetCandles:
             candles["symbol"] = self.symbol
             candles.index = candles["time"].map(lambda x: dt.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ"))
             candles["timestamp"] = candles.index.map(lambda x: x.timestamp())
-            candles["closeMid"] = (candles["closeAsk"] + candles["closeBid"]) / 2
-            candles["lowMid"] = (candles["lowAsk"] + candles["lowBid"]) / 2
-            candles["highMid"] = (candles["highAsk"] + candles["highBid"]) / 2
-            candles["openMid"] = (candles["openAsk"] + candles["openBid"]) / 2
+            for x in ['open', 'high', 'low', 'close']:
+                candles['%sMid' % x] = (candles['%sAsk' % x] + candles['%sBid' % x]) / 2
             return candles
         except Exception as e:
-            print('%s\n>>> Error: No candles in JSON response:'%e)
+            print('%s\n>>> Error: No candles in JSON response:' % e)
             return False
-
-
