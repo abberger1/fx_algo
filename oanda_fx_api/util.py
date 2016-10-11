@@ -1,6 +1,4 @@
 import statsmodels.tsa.stattools as ts
-import talib
-
 from prices import StreamPrices, GetCandles
 from config import Paths
 from position import Positions
@@ -27,22 +25,18 @@ class Tick(object):
         self.ewma = tick["ewma"]
         self.upper = tick["upper_band"]
         self.lower = tick["lower_band"]
-        self.volatility = tick["volatility"]
-        self.adx = tick["adx"]
         self.adf_1 = tick["ADF_1"]
         self.adf_5 = tick["ADF_5"]
         self.adf_10 = tick["ADF_10"]
         self.adf_p = tick["ADF_p"]
         self.adf_stat = tick["ADF_stat"]
-        self.cum_ret = tick["cum_ret"]*10000
 
     def __repr__(self):
         return self.__str__()
 
     def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (
-	    	self._time, self.symbol, self.closeBid, self.closeAsk,
-                self.K, self.D, self.sma, self.ewma, self.upper, self.lower)
+        return "%s,%s,%s,%s" % (
+                self._time, self.symbol, self.closeBid, self.closeAsk)
 
     def write_tick(self):
         with open(self.path, "a") as file:
@@ -53,19 +47,17 @@ class Compute(GetCandles):
     def __init__(self, account, count, symbol, longWin, shortWin, granularity):
         GetCandles.__init__(self, account, count, symbol, granularity)
         self.candles = self.request()
-        self._open = self.candles["openMid"].values
-        self.high = self.candles["highMid"].values
-        self.low = self.candles["lowMid"].values
-        self.close = self.candles["closeMid"].values
         self.longWin = longWin
         self.shortWin = shortWin
+        self._open = self.candles["openMid"]
+        self.high = self.candles["highMid"]
+        self.low = self.candles["lowMid"]
+        self.close = self.candles["closeMid"]
         self.candles["total_volume"] = self.candles["volume"].sum()
+        self.moving_average()
         self.stoch_osc()
         self.adf_test()
-        self.cum_ret()
-        self.moving_average()
         self.bbands()
-        self.adx()
         self.tick = Tick(self.candles.ix[self.candles.index[-1]])
 
     def adf_test(self):
@@ -78,29 +70,19 @@ class Compute(GetCandles):
         self.candles["ADF_stat"] = test[0]
 
     def stoch_osc(self):
-        self.candles["K"], self.candles["D"] = talib.STOCH(self.high, 
-                                                           self.low, 
-                                                           self.close,
-                                                           slowk_period=52,
-                                                           fastk_period=68,
-                                                           slowd_period=52)
+        self.candles['max'] = self.high.rolling(window=self.longWin).max()
+        self.candles['min'] = self.low.rolling(window=self.longWin).min()
+        
+        self.candles['K'] = (self.close - self.candles['min']) / (self.candles['max'] - self.candles['min']) * 100
+        self.candles['D'] = self.candles['K'].rolling(window=3).mean()
 
     def moving_average(self):
-        self.candles["sma"] = talib.SMA(self.close, timeperiod=self.shortWin)
-        self.candles["ewma"] = talib.EMA(self.close, timeperiod=self.shortWin)
-
-    def macd(self):
-        self.candles["macd"], self.candles["macd_sig"], self.candles["macd_hist"] = talib.MACD(self.close)
+        self.candles['sma'] = self.close.rolling(window=self.longWin).mean()
+        self.candles['ewma'] = self.close.rolling(window=self.shortWin).mean()
 
     def bbands(self):
-        self.candles["upper_band"], self.candles["mid"], self.candles["lower_band"] = talib.BBANDS(self.close, timeperiod=self.longWin)
-        self.candles["volatility"] = (self.candles["upper_band"] - self.candles["lower_band"])*10000
-
-    def cum_ret(self):
-        self.candles["cum_ret"] = self.candles["closeMid"].pct_change().cumsum()
-
-    def adx(self):
-        self.candles["adx"] = talib.ADX(self.high, self.low, self.close, timeperiod=48)
+        self.candles['upper_band'] = self.candles['sma'] + self.close.rolling(window=self.longWin).std() * 2
+        self.candles['lower_band'] = self.candles['sma'] - self.close.rolling(window=self.longWin).std() * 2
 
 
 class Signals(Compute):
@@ -111,34 +93,31 @@ class Signals(Compute):
         self.mavg_state = self.moving_avg_signals()
 
     def stoch_signals(self):
-        K, D = self.tick.K, self.tick.D
-        if 80 < K < 90:
+        if 80 < self.tick.K < 90:
             channel = 1
-        elif 10 < K < 20:
+        elif 10 < self.tick.K < 20:
             channel = -1
         else:
             channel = 0
-        if K > D:
+        if self.tick.K > self.tick.D:
             stoch = 1
-        elif K < D:
+        elif self.tick.K < self.tick.D:
             stoch = -1
         return channel, stoch
 
     def bband_signals(self):
-        upper, lower, closeMid = self.tick.upper, self.tick.lower, self.tick.closeMid
-        if lower < closeMid < upper:
+        if self.tick.lower < self.tick.closeMid < self.tick.upper:
             channel = 0
-        elif closeMid > upper:
+        elif self.tick.closeMid > self.tick.upper:
             channel = 1
-        elif closeMid < lower:
+        elif self.tick.closeMid < self.tick.lower:
             channel = -1
         return channel
 
     def moving_avg_signals(self):
-        sma, ewma = self.tick.sma, self.tick.ewma
-        if ewma > sma:
+        if self.tick.ewma > self.tick.sma:
             sma_state = 1
-        elif ewma < sma:
+        elif self.tick.ewma < self.tick.sma:
             sma_state = -1
         return sma_state
 
